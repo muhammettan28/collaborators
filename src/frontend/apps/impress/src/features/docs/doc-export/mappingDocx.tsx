@@ -6,6 +6,7 @@ import {
 import { docxDefaultSchemaMappings } from '@blocknote/xl-docx-exporter';
 
 import { withLoopTableMapping } from '@/docs/doc-editor/components/custom-blocks/loop-table/export';
+import { withPresentationMapping } from '@/docs/doc-editor/components/custom-blocks/presentation/export';
 
 import {
   blockMappingCalloutDocx,
@@ -19,75 +20,84 @@ import { DocsExporterDocx } from './types';
 export const getDocxDocsSchemaMappings = (
   interlinkTitles: Map<string, string>,
 ): DocsExporterDocx['mappings'] =>
-  withLoopTableMapping<DocsExporterDocx['mappings']>({
-    ...docxDefaultSchemaMappings,
-    blockMapping: {
-      ...docxDefaultSchemaMappings.blockMapping,
-      callout: blockMappingCalloutDocx,
-      // We're reusing the file block mapping for PDF blocks; both share the same
-      // implementation signature, so we can reuse the handler directly.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      pdf: docxDefaultSchemaMappings.blockMapping.file as any,
-      // Renders the LaTeX as a native (editable) Word equation.
-      mathBlock: mathBlockMapping,
-      // Renders the Mermaid source to a PNG in the browser (async mapping).
-      diagram: diagramBlockMapping,
-      quote: blockMappingQuoteDocx,
-      image: blockMappingImageDocx,
-      uploadLoader: blockMappingUploadLoaderDocx,
-      table: (block, exporter, nestedLevel, numberedListIndex, children) => {
-        /**
-         * Nan values are not supported, so we need to replace them with undefined
-         * to avoid issues during the export.
-         */
-        const { columnWidths } = block.content;
-        const hasNaN = columnWidths.some(
-          (width) => typeof width === 'number' && Number.isNaN(width),
-        );
-        if (hasNaN) {
-          block.content.columnWidths = columnWidths.map((width) =>
-            typeof width === 'number' && Number.isNaN(width)
-              ? undefined
-              : width,
+  withPresentationMapping<DocsExporterDocx['mappings']>(
+    withLoopTableMapping<
+      Omit<DocsExporterDocx['mappings'], 'blockMapping'> & {
+        blockMapping: Omit<
+          DocsExporterDocx['mappings']['blockMapping'],
+          'presentation'
+        >;
+      }
+    >({
+      ...docxDefaultSchemaMappings,
+      blockMapping: {
+        ...docxDefaultSchemaMappings.blockMapping,
+        callout: blockMappingCalloutDocx,
+        // We're reusing the file block mapping for PDF blocks; both share the same
+        // implementation signature, so we can reuse the handler directly.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        pdf: docxDefaultSchemaMappings.blockMapping.file as any,
+        // Renders the LaTeX as a native (editable) Word equation.
+        mathBlock: mathBlockMapping,
+        // Renders the Mermaid source to a PNG in the browser (async mapping).
+        diagram: diagramBlockMapping,
+        quote: blockMappingQuoteDocx,
+        image: blockMappingImageDocx,
+        uploadLoader: blockMappingUploadLoaderDocx,
+        table: (block, exporter, nestedLevel, numberedListIndex, children) => {
+          /**
+           * Nan values are not supported, so we need to replace them with undefined
+           * to avoid issues during the export.
+           */
+          const { columnWidths } = block.content;
+          const hasNaN = columnWidths.some(
+            (width) => typeof width === 'number' && Number.isNaN(width),
           );
-        }
+          if (hasNaN) {
+            block.content.columnWidths = columnWidths.map((width) =>
+              typeof width === 'number' && Number.isNaN(width)
+                ? undefined
+                : width,
+            );
+          }
 
-        return docxDefaultSchemaMappings.blockMapping.table(
-          block,
-          exporter,
-          nestedLevel,
-          numberedListIndex,
-          children,
-        );
+          return docxDefaultSchemaMappings.blockMapping.table(
+            block,
+            exporter,
+            nestedLevel,
+            numberedListIndex,
+            children,
+          );
+        },
       },
-    },
-    inlineContentMapping: {
-      ...docxDefaultSchemaMappings.inlineContentMapping,
-      interlinkingLinkInline:
-        createInlineContentMappingInterlinkingLinkDocx(interlinkTitles),
-      // Renders inline math as a native (editable) Word equation.
-      math: inlineMathMapping,
-      // A mention is exported as its bold "@name"
-      mention: (inline, exporter) =>
-        docxDefaultSchemaMappings.inlineContentMapping.text(
-          {
-            type: 'text',
-            text: `@${inline.props.label}`,
-            styles: { bold: true },
-          },
-          exporter,
-        ),
-    },
-    styleMapping: {
-      ...docxDefaultSchemaMappings.styleMapping,
-      // Switch to core PDF "Courier" font to avoid relying on GeistMono
-      // that is not available in italics
-      code: (enabled?: boolean) =>
-        enabled
-          ? {
-              font: 'Courier New',
-              shading: { fill: 'DCDCDC' },
-            }
-          : {},
-    },
-  });
+      inlineContentMapping: {
+        ...docxDefaultSchemaMappings.inlineContentMapping,
+        interlinkingLinkInline:
+          createInlineContentMappingInterlinkingLinkDocx(interlinkTitles),
+        // Renders inline math as a native (editable) Word equation.
+        math: inlineMathMapping,
+        // A mention is exported as its bold "@name"
+        mention: (inline, exporter) =>
+          docxDefaultSchemaMappings.inlineContentMapping.text(
+            {
+              type: 'text',
+              text: `@${inline.props.label}`,
+              styles: { bold: true },
+            },
+            exporter,
+          ),
+      },
+      styleMapping: {
+        ...docxDefaultSchemaMappings.styleMapping,
+        // Switch to core PDF "Courier" font to avoid relying on GeistMono
+        // that is not available in italics
+        code: (enabled?: boolean) =>
+          enabled
+            ? {
+                font: 'Courier New',
+                shading: { fill: 'DCDCDC' },
+              }
+            : {},
+      },
+    }),
+  );

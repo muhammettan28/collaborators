@@ -24,6 +24,7 @@ import BlockNoteAI from './AI';
 import {
   getCalloutReactSlashMenuItems,
   getPdfReactSlashMenuItems,
+  getPresentationReactSlashMenuItems,
 } from './custom-blocks';
 import { getLoopTableReactSlashMenuItems } from './custom-blocks/loop-table/LoopTableBlock';
 import { useGetInterlinkingMenuItems } from './custom-inline-content';
@@ -70,6 +71,7 @@ export const BlockNoteSuggestionMenu = ({
       getPageBreakReactSlashMenuItems(editor),
       getMultiColumnSlashMenuItems?.(editor) || [],
       getPdfReactSlashMenuItems(editor, t, fileBlocksName),
+      getPresentationReactSlashMenuItems(editor, t, fileBlocksName),
       getCalloutReactSlashMenuItems(editor, t, basicBlocksName),
       getLoopTableReactSlashMenuItems(editor, t, basicBlocksName),
       getMathSlashMenuItems(editor),

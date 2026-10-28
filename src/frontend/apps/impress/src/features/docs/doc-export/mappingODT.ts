@@ -6,6 +6,7 @@ import {
 import { odtDefaultSchemaMappings } from '@blocknote/xl-odt-exporter';
 
 import { withLoopTableMapping } from '@/docs/doc-editor/components/custom-blocks/loop-table/export';
+import { withPresentationMapping } from '@/docs/doc-editor/components/custom-blocks/presentation/export';
 
 import {
   blockMappingCalloutODT,
@@ -22,38 +23,47 @@ const baseInlineMappings =
 export const getOdtDocsSchemaMappings = (
   interlinkTitles: Map<string, string>,
 ): DocsExporterODT['mappings'] =>
-  withLoopTableMapping<DocsExporterODT['mappings']>({
-    ...odtDefaultSchemaMappings,
-    blockMapping: {
-      ...odtDefaultSchemaMappings.blockMapping,
-      callout: blockMappingCalloutODT,
-      image: blockMappingImageODT,
-      // We're reusing the file block mapping for PDF blocks
-      // The types don't match exactly but the implementation is compatible
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      pdf: odtDefaultSchemaMappings.blockMapping.file as any,
-      uploadLoader: blockMappingUploadLoaderODT,
-      // Renders the LaTeX as a native (editable) ODF formula object.
-      mathBlock: mathBlockMapping,
-      // Renders the Mermaid source to a PNG in the browser (async mapping).
-      diagram: diagramBlockMapping,
-    },
+  withPresentationMapping<DocsExporterODT['mappings']>(
+    withLoopTableMapping<
+      Omit<DocsExporterODT['mappings'], 'blockMapping'> & {
+        blockMapping: Omit<
+          DocsExporterODT['mappings']['blockMapping'],
+          'presentation'
+        >;
+      }
+    >({
+      ...odtDefaultSchemaMappings,
+      blockMapping: {
+        ...odtDefaultSchemaMappings.blockMapping,
+        callout: blockMappingCalloutODT,
+        image: blockMappingImageODT,
+        // We're reusing the file block mapping for PDF blocks
+        // The types don't match exactly but the implementation is compatible
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        pdf: odtDefaultSchemaMappings.blockMapping.file as any,
+        uploadLoader: blockMappingUploadLoaderODT,
+        // Renders the LaTeX as a native (editable) ODF formula object.
+        mathBlock: mathBlockMapping,
+        // Renders the Mermaid source to a PNG in the browser (async mapping).
+        diagram: diagramBlockMapping,
+      },
 
-    inlineContentMapping: {
-      ...baseInlineMappings,
-      interlinkingLinkInline:
-        createInlineContentMappingInterlinkingLinkODT(interlinkTitles),
-      // Renders inline math as a native (editable) ODF formula object.
-      math: inlineMathMapping,
-      // A mention is exported as its bold "@name"
-      mention: (inline, exporter) =>
-        baseInlineMappings.text(
-          {
-            type: 'text',
-            text: `@${inline.props.label}`,
-            styles: { bold: true },
-          },
-          exporter,
-        ),
-    },
-  });
+      inlineContentMapping: {
+        ...baseInlineMappings,
+        interlinkingLinkInline:
+          createInlineContentMappingInterlinkingLinkODT(interlinkTitles),
+        // Renders inline math as a native (editable) ODF formula object.
+        math: inlineMathMapping,
+        // A mention is exported as its bold "@name"
+        mention: (inline, exporter) =>
+          baseInlineMappings.text(
+            {
+              type: 'text',
+              text: `@${inline.props.label}`,
+              styles: { bold: true },
+            },
+            exporter,
+          ),
+      },
+    }),
+  );

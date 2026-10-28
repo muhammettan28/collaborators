@@ -188,6 +188,49 @@ describe('Reports and platform settings', () => {
     );
   });
 
+  test('owners set the storage for presentations, a number', async () => {
+    const off = { value: true, server_default: true, set_here: false };
+    fetchMock.get(`${API}/platform/settings/`, {
+      signup_approval: off,
+      email_invitations: off,
+      presentation_storage_mb: {
+        value: 25,
+        server_default: 25,
+        set_here: false,
+      },
+      presentation_versions: { value: 5, server_default: 5, set_here: false },
+    });
+    fetchMock.patch(`${API}/platform/settings/`, {
+      signup_approval: off,
+      email_invitations: off,
+      presentation_storage_mb: {
+        value: 50,
+        server_default: 25,
+        set_here: true,
+      },
+      presentation_versions: { value: 5, server_default: 5, set_here: false },
+    });
+    render(<PlatformSettings />, { wrapper: AppWrapper });
+
+    const storage = await screen.findByLabelText(
+      'Storage for presentations, per person (MB)',
+    );
+    const save = () => screen.getAllByRole('button', { name: 'Save' })[0];
+    expect(save()).toBeDisabled();
+    fireEvent.change(storage, { target: { value: '-3' } });
+    expect(save()).toBeDisabled();
+    fireEvent.change(storage, { target: { value: '50' } });
+    fireEvent.click(save());
+    await waitFor(() =>
+      expect(lastBody(`${API}/platform/settings/`, 'PATCH')).toEqual({
+        presentation_storage_mb: 50,
+      }),
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Follow the server’s own' }),
+    ).toBeInTheDocument();
+  });
+
   test('each level finds its tabs', () => {
     me.current = { platform_role: 'administrator' };
     const { unmount } = render(<CollaboratorsTabs />, { wrapper: AppWrapper });
