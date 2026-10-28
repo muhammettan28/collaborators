@@ -182,7 +182,7 @@ def test_api_notifications_read_and_preferences():
         url, {"anchor_id": str(uuid4()), "mentioned_user_id": str(reader.id)}
     )
     assert models.Notification.objects.filter(recipient=reader).count() == 3
-    assert mail.outbox == []
+    assert not mail.outbox
 
 
 def test_api_notifications_are_private():
@@ -238,3 +238,94 @@ def test_api_notifications_unread_and_read_apart():
 
     assert [item["id"] for item in unread] == [second["id"]]
     assert [item["id"] for item in read] == [first["id"]]
+
+
+def test_api_mention_overlapping_groups_in_a_block_notify_once():
+    """
+    "@Product @Engineering" in one block: someone in both groups gets one
+    inbox entry, which shows the first group; each group keeps its mention.
+    """
+    author, both, only_second = factories.UserFactory.create_batch(3)
+    product = make_group(author, [both], name="Product")
+    engineering = make_group(author, [both, only_second], name="Engineering")
+    document = factories.DocumentFactory(
+        users=[(author, "editor"), (both, "reader"), (only_second, "reader")]
+    )
+    anchor = str(uuid4())
+    url = f"/api/v1.0/documents/{document.id}/mention/"
+
+    for group in (product, engineering):
+        response = client_for(author).post(
+            url, {"anchor_id": anchor, "mentioned_team": group.team}
+        )
+        assert response.status_code == 201
+
+    assert sorted(
+        models.Notification.objects.values_list("recipient_id", "team")
+    ) == sorted([(both.id, product.team), (only_second.id, engineering.team)])
+    assert models.Mention.objects.filter(mentioned_user=both).count() == 2
+
+
+def test_api_mention_group_and_person_in_a_block_notify_once():
+    """Named directly and through a group in one block: one entry, as a person."""
+    author, member = factories.UserFactory.create_batch(2)
+    group = make_group(author, [member])
+    document = factories.DocumentFactory(users=[(author, "editor"), (member, "reader")])
+    url = f"/api/v1.0/documents/{document.id}/mention/"
+    group_first, person_first = str(uuid4()), str(uuid4())
+
+    client = client_for(author)
+    client.post(url, {"anchor_id": group_first, "mentioned_team": group.team})
+    client.post(url, {"anchor_id": group_first, "mentioned_user_id": str(member.id)})
+    client.post(url, {"anchor_id": person_first, "mentioned_user_id": str(member.id)})
+    client.post(url, {"anchor_id": person_first, "mentioned_team": group.team})
+
+    assert sorted(
+        models.Notification.objects.filter(recipient=member).values_list(
+            "anchor_id", "team"
+        )
+    ) == sorted([(group_first, ""), (person_first, "")])
+
+
+def test_api_comment_mentions_of_groups_and_person_notify_once():
+    """A comment naming two groups and a member of both: one inbox entry."""
+    author, member = factories.UserFactory.create_batch(2)
+    product = make_group(author, [member], name="Product")
+    engineering = make_group(author, [member], name="Engineering")
+    document = factories.DocumentFactory(
+        users=[(author, "editor"), (member, "commenter")]
+    )
+
+    def mention(kind, target):
+        return {"type": "mention", "props": {"kind": kind, "targetId": target}}
+
+    body = [
+        {
+            "type": "paragraph",
+            "content": [
+                mention("group", product.team),
+                mention("group", engineering.team),
+                mention("user", str(member.id)),
+            ],
+        }
+    ]
+    url = f"/api/v1.0/documents/{document.id}/threads/"
+
+    response = client_for(author).post(url, {"body": body}, format="json")
+
+    assert response.status_code == 201
+    notification = models.Notification.objects.get()
+    assert (notification.recipient, notification.kind, notification.team) == (
+        member,
+        "comment_mention",
+        "",
+    )
+    assert models.Mention.objects.filter(mentioned_user=member).count() == 3
+
+    # A reply mentioning them again is another action: another entry
+    thread_id = response.json()["id"]
+    response = client_for(author).post(
+        f"{url}{thread_id}/comments/", {"body": body}, format="json"
+    )
+    assert response.status_code == 201
+    assert models.Notification.objects.count() == 2

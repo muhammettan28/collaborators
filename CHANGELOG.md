@@ -25,6 +25,7 @@ and this project adheres to
 ### Fixed
 
 - 🔒️(backend) bind comment thread to the path document on creation #2838
+- 🐛(backend) one inbox entry per person when several groups mention them
 
 ## [v6.0.1] - 2026-10-15
 
