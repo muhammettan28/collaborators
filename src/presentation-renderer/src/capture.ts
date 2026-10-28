@@ -53,8 +53,13 @@ const settle = async (page: Page, ms: number) => {
  * Draw a presentation and capture it. Slides are stepped through as a
  * reader would, with the right arrow key, a picture of each, until the
  * picture stops changing (the last slide), the slide limit or the time
- * limit. A presentation that doesn't move but scrolls (slides one below
- * the other) is printed instead, one screen per page.
+ * limit. Pictures are taken with CSS animations stilled, so a transition
+ * never makes two pictures of one slide.
+ *
+ * A page that keeps changing on its own (an animation played by script) is
+ * not stepped through: every picture would differ. It is captured once.
+ * Either way, a page that scrolls (slides one below the other) and has a
+ * single picture is printed instead, one screen per page.
  */
 export const capture = async (
   html: string,
@@ -84,20 +89,28 @@ export const capture = async (
     });
     await settle(page, 1500);
 
-    const slides: Buffer[] = [];
-    let previous: Buffer | null = null;
+    const picture = () =>
+      page.screenshot({ type: 'jpeg', quality: 85, animations: 'disabled' });
+
+    const first = await picture();
+    await settle(page, 1000);
+    const movesOnItsOwn = !(await picture()).equals(first);
+
+    const slides: Buffer[] = [first];
+    let previous = first;
     while (
+      !movesOnItsOwn &&
       slides.length < config.maxSlides &&
       Date.now() - started < config.renderTimeoutMs
     ) {
-      const shot = await page.screenshot({ type: 'jpeg', quality: 85 });
-      if (previous && shot.equals(previous)) {
+      await page.keyboard.press('ArrowRight');
+      await settle(page, 700);
+      const shot = await picture();
+      if (shot.equals(previous)) {
         break;
       }
       slides.push(shot);
       previous = shot;
-      await page.keyboard.press('ArrowRight');
-      await settle(page, 700);
     }
 
     if (slides.length === 1) {

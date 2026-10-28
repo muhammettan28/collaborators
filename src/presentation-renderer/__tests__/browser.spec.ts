@@ -28,6 +28,22 @@ describe.skipIf(!process.env.CHROMIUM_PATH)('capture, in a real browser', () => 
     expect(captured.kind === 'slides' && captured.slides.length).toBe(3);
   });
 
+  it('captures once a page that keeps changing on its own', async () => {
+    const playing = `<body style="margin:0;font:60px sans-serif"><div id="t">0</div>
+      <script>let n=0;setInterval(()=>{document.getElementById('t').textContent=++n},50)</script></body>`;
+    const captured = await capture(playing);
+    expect(captured.kind === 'slides' && captured.slides.length).toBe(1);
+  });
+
+  it('pictures a slide whole, through a CSS transition', async () => {
+    const fading = deck.replace(
+      '.s.on{display:grid}',
+      '.s.on{display:grid;animation:fade 2s}@keyframes fade{from{opacity:0}to{opacity:1}}',
+    );
+    const captured = await capture(fading);
+    expect(captured.kind === 'slides' && captured.slides.length).toBe(3);
+  });
+
   it('prints a presentation whose slides are one below the other', async () => {
     const tall = `<body style="margin:0">${['a', 'b', 'c']
       .map((x) => `<section style="height:720px;font:60px serif">${x}</section>`)

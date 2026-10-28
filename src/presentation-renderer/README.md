@@ -14,9 +14,11 @@ calls it when a reader clicks **Export to PDF**:
    from public hosts, no requests of its own, no forms, no frames).
 2. Steps through the slides with the right arrow key, one picture per slide,
    until the picture stops changing (the last slide), `MAX_SLIDES` or
-   `RENDER_TIMEOUT_MS`. A presentation whose slides are one below the other
-   (it scrolls, the arrow changes nothing) is printed instead, one screen
-   per page.
+   `RENDER_TIMEOUT_MS`, with CSS animations stilled. A page that keeps
+   changing on its own (an animation played by script) is captured once
+   rather than stepped through. A presentation whose slides are one below
+   the other (it scrolls, the arrow changes nothing) is printed instead,
+   one screen per page.
 3. Inserts the **dated page** after the cover (at the end of a one-page PDF):
    the lines the backend wrote in the reader's language (when the file was
    made, that the presentation is live), the permanent address of the PDF,
