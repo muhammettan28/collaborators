@@ -204,6 +204,13 @@ const VersionsPanel = ({ presentation }: { presentation: Presentation }) => {
   const restore = useRestorePresentation(presentation.id);
   return (
     <Box $gap="xs">
+      {data?.length === 0 && (
+        <Text $size="sm" $variation="secondary">
+          {t('No file of it is stored here.', {
+            description: 'Versions panel of a presentation with no stored file',
+          })}
+        </Text>
+      )}
       {data?.map((version) => (
         <Box key={version.id} $direction="row" $gap="xs" $align="center">
           <Text $size="sm" $flex={1}>
@@ -296,7 +303,8 @@ const PresentationBar = ({
       }),
       icon: <Icon iconName="history" $size="18px" />,
       callback: () => setPanel('versions'),
-      show: editable && presentation.source === 'file',
+      // also for a linked one: its files from before stay, and count
+      show: editable,
     },
     ...ratios.map((ratio, index) => ({
       label: t('Shape {{ratio}}', {
