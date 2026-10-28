@@ -16,7 +16,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from core import models, platform_roles, registrations
+from core import models, platform_roles, presentations, registrations
 from core.choices import (
     PlatformLogActionChoices,
     ReportReasonChoices,
@@ -38,13 +38,26 @@ class ReportError(Exception):
 
 
 def page_text(document):
-    """The page's text as the collaboration server holds it ("" if unread)."""
+    """
+    The page's text as the collaboration server holds it ("" if unread),
+    then its presentations, which the text doesn't show: their titles and
+    addresses, for administrators to open.
+    """
     try:
         update = YHubService().get_ydoc(document)
-        return yjs_to_text(update) if update else ""
+        text = yjs_to_text(update) if update else ""
     except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
         logger.warning("No text for the reported page %s", document.pk)
-        return ""
+        text = ""
+    shown = [
+        _("Presentation “{title}”: {url}{link}").format(
+            title=presentation.title or _("Untitled"),
+            url=presentations.view_url(presentation),
+            link=f" ({presentation.link_url})" if presentation.link_url else "",
+        )
+        for presentation in document.presentations.order_by("created_at")
+    ]
+    return "\n".join(part for part in [text, *shown] if part)
 
 
 def owners(document):

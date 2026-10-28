@@ -169,15 +169,28 @@ class YdocConverter:
         current state given), a closed toggle titled `title` holding the
         Markdown. Computed by the converter's `append-toggle` route.
         """
-        url = f"{settings.Y_PROVIDER_API_BASE_URL}append-toggle/"
+        return self._append(
+            "append-toggle", document_update, {"title": title, "markdown": markdown}
+        )
+
+    def append_blocks(self, document_update, blocks):
+        """
+        Collaborators: the Yjs update adding blocks (BlockNote's JSON, e.g. a
+        presentation block) at the end of a document, its current state given.
+        Computed by the converter's `append-blocks` route.
+        """
+        return self._append("append-blocks", document_update, {"blocks": blocks})
+
+    def _append(self, route, document_update, payload):
+        """Ask the converter for an update adding something at the end."""
+        url = f"{settings.Y_PROVIDER_API_BASE_URL}{route}/"
         try:
-            with outgoing_request("y-provider", "append-toggle") as observed:
+            with outgoing_request("y-provider", route) as observed:
                 response = requests.post(
                     url,
                     json={
                         "doc": base64.b64encode(document_update or b"").decode(),
-                        "title": title,
-                        "markdown": markdown,
+                        **payload,
                     },
                     headers={"Authorization": self.auth_header},
                     timeout=settings.CONVERSION_API_TIMEOUT,

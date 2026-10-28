@@ -17,6 +17,7 @@ from core.api import (
     page_links,
     people,
     platform,
+    presentations,
     profiles,
     publishing,
     registrations,
@@ -224,6 +225,40 @@ urlpatterns = [
                     platform.BlockedEmailView.as_view(),
                 ),
                 path("collaborations/", collaborations.CollaborationsView.as_view()),
+                # Collaborators: HTML presentations shown in pages
+                path("presentations/", presentations.PresentationListView.as_view()),
+                path(
+                    "presentations/storage/",
+                    presentations.PresentationStorageView.as_view(),
+                ),
+                path(
+                    "presentations/upload/<str:token>/",
+                    presentations.PresentationUploadView.as_view(),
+                ),
+                path(
+                    "presentations/<uuid:pk>/",
+                    presentations.PresentationDetailView.as_view(),
+                ),
+                path(
+                    "presentations/<uuid:pk>/file/",
+                    presentations.PresentationFileView.as_view(),
+                ),
+                path(
+                    "presentations/<uuid:pk>/content/",
+                    presentations.PresentationContentView.as_view(),
+                ),
+                path(
+                    "presentations/<uuid:pk>/versions/",
+                    presentations.PresentationVersionsView.as_view(),
+                ),
+                path(
+                    "presentations/<uuid:pk>/versions/<uuid:version_id>/restore/",
+                    presentations.PresentationRestoreView.as_view(),
+                ),
+                path(
+                    "presentations/<uuid:pk>/pdf/",
+                    presentations.PresentationPdfView.as_view(),
+                ),
                 path("search/", search.SearchView.as_view()),
                 path(
                     "workspaces/<uuid:workspace_id>/favorite/",

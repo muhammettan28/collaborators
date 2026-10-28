@@ -3778,6 +3778,8 @@ class PlatformSettings(BaseModel):
 
     signup_approval = models.BooleanField(null=True, blank=True)
     email_invitations = models.BooleanField(null=True, blank=True)
+    presentation_storage_mb = models.PositiveIntegerField(null=True, blank=True)
+    presentation_versions = models.PositiveIntegerField(null=True, blank=True)
     updated_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -3899,3 +3901,71 @@ class ItemLogo(BaseModel):
 
     def __str__(self):
         return f"Logo of {self.workspace or self.document}"
+
+
+class Presentation(BaseModel):
+    """
+    Collaborators: an HTML presentation shown in a page by its "presentation"
+    block (core.presentations). Either stored here, as versions (the current
+    one shown), or a link to an HTML file hosted elsewhere, fetched when it is
+    shown. Whoever reads the page sees it; whoever edits the page changes it.
+    """
+
+    document = models.ForeignKey(
+        Document, on_delete=models.CASCADE, related_name="presentations"
+    )
+    title = models.CharField(max_length=255, blank=True)
+    # An HTML file hosted elsewhere; empty for a presentation stored here
+    link_url = models.URLField(max_length=2000, blank=True)
+    current = models.ForeignKey(
+        "PresentationVersion",
+        on_delete=models.SET_NULL,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "collaborators_presentation"
+        verbose_name = _("Presentation")
+        verbose_name_plural = _("Presentations")
+
+    def __str__(self):
+        return self.title or str(self.pk)
+
+
+class PresentationVersion(BaseModel):
+    """
+    One stored file of a presentation. It counts against the storage of
+    whoever uploaded it; the oldest beyond the platform's number of versions
+    go, with their file.
+    """
+
+    presentation = models.ForeignKey(
+        Presentation, on_delete=models.CASCADE, related_name="versions"
+    )
+    file_key = models.CharField(max_length=255)
+    size = models.PositiveIntegerField()
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="presentation_uploads",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "collaborators_presentation_version"
+        verbose_name = _("Presentation version")
+        verbose_name_plural = _("Presentation versions")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.presentation} ({self.created_at:%Y-%m-%d %H:%M})"

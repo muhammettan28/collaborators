@@ -11,11 +11,13 @@ the assistant registered there on its own and the person signed in and
 approved it. The token names the person (by email, as signing in does);
 without one, the answer says where to get it. What the assistant may do is
 in core.assistants: find the pages the person can edit, and add their input
-to one.
+to one; and in core.presentations: publish an HTML presentation in a page,
+and replace it later at the same address.
 """
 
 import json
 import logging
+import uuid
 from functools import lru_cache
 
 from django.conf import settings
@@ -27,7 +29,7 @@ from django.views.decorators.http import require_http_methods
 
 import jwt
 
-from core import assistants, merging, models, registrations
+from core import assistants, merging, models, presentations, registrations
 from core.services import keycloak
 from core.services.converter_services import ServiceUnavailableError
 from core.services.yhub_services import YHubError
@@ -85,6 +87,98 @@ TOOLS = [
             "required": ["page_id", "text"],
         },
         "annotations": {"destructiveHint": False, "idempotentHint": False},
+    },
+    {
+        "name": "publish_presentation",
+        "title": "Publish a presentation in a page",
+        "description": (
+            "Publish an HTML presentation (a standalone HTML file: slides "
+            "made in a chat or exported from Claude Design) in a "
+            "Collaborators page the user can edit. It is added at the end "
+            "of the page, where readers click through it, and gets a "
+            "permanent address and an 'Export to PDF' address. Give the "
+            "HTML itself in `html`; or `link`, the https address of an HTML "
+            "file hosted elsewhere (shown from there, always its current "
+            "state); or, for a file too big to write out (over about "
+            "200 KB), set `upload_later` and upload it within 15 minutes "
+            "with the command returned (curl -F file=@deck.html <address>)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "page_id": {
+                    "type": "string",
+                    "description": "The page's id, as find_pages gives it",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Its title (else the HTML's own <title>)",
+                },
+                "html": {"type": "string", "description": "The HTML file"},
+                "link": {
+                    "type": "string",
+                    "description": "Or: the https address of an HTML file",
+                },
+                "upload_later": {
+                    "type": "boolean",
+                    "description": "Or: get an address to upload the file to",
+                },
+            },
+            "required": ["page_id"],
+        },
+        "annotations": {"destructiveHint": False, "idempotentHint": False},
+    },
+    {
+        "name": "replace_presentation",
+        "title": "Replace a presentation",
+        "description": (
+            "Replace a presentation published in a Collaborators page with "
+            "a new version, at the same address: the page shows the new one "
+            "at once and its PDF address gives it from then on (earlier "
+            "versions stay in its history). Give `html`, `link` or "
+            "`upload_later` as for publish_presentation; `title` alone "
+            "renames it."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "presentation_id": {
+                    "type": "string",
+                    "description": "Its id, as list_presentations gives it",
+                },
+                "title": {"type": "string", "description": "A new title"},
+                "html": {"type": "string", "description": "The new HTML file"},
+                "link": {
+                    "type": "string",
+                    "description": "Or: the https address of an HTML file",
+                },
+                "upload_later": {
+                    "type": "boolean",
+                    "description": "Or: get an address to upload the file to",
+                },
+            },
+            "required": ["presentation_id"],
+        },
+        "annotations": {"destructiveHint": False, "idempotentHint": False},
+    },
+    {
+        "name": "list_presentations",
+        "title": "List presentations",
+        "description": (
+            "List the presentations in the Collaborators pages the user can "
+            "edit (or in one page), with their ids, addresses and PDF "
+            "addresses."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "page_id": {
+                    "type": "string",
+                    "description": "Only this page's (optional)",
+                }
+            },
+        },
+        "annotations": {"readOnlyHint": True},
     },
 ]
 
@@ -199,6 +293,13 @@ def _text(text, is_error=False, structured=None):
 
 def _call_tool(user, claims, name, arguments):
     """Run one tool as the person; errors become a result the model reads."""
+    if name in PRESENTATION_TOOLS:
+        return _call_presentation_tool(user, name, arguments)
+    return _call_input_tool(user, claims, name, arguments)
+
+
+def _call_input_tool(user, claims, name, arguments):
+    """Finding pages and adding one's input to one (core.assistants)."""
     if name == "find_pages":
         pages = assistants.editable_pages(user, arguments.get("query") or "")
         if not pages:
@@ -224,6 +325,134 @@ def _call_tool(user, claims, name, arguments):
     return None
 
 
+def _call_presentation_tool(user, name, arguments):
+    """Publishing, replacing and listing presentations (core.presentations)."""
+    try:
+        return PRESENTATION_TOOLS[name](user, arguments)
+    except (assistants.InputError, presentations.PresentationError) as err:
+        return _text(str(err), is_error=True)
+    except ServiceUnavailableError, YHubError:
+        logger.exception("MCP presentation not published")
+        return _text(
+            _("The presentation could not be published right now."),
+            is_error=True,
+        )
+
+
+def _presentation_summary(presentation, user, upload_url=None):
+    described = presentations.describe(presentation, user)
+    summary = {
+        key: described[key]
+        for key in ("id", "title", "source", "link", "page", "view_url", "pdf_url")
+    }
+    lines = [
+        _("“{title}” in the page “{page}”.").format(
+            title=presentation.title or _("Presentation"),
+            page=presentation.document.title or _("Untitled page"),
+        ),
+        _("Shown at: {url}").format(url=described["view_url"]),
+        _("PDF, always current: {url}").format(url=described["pdf_url"]),
+    ]
+    if upload_url:
+        summary["upload_url"] = upload_url
+        lines.append(
+            _(
+                "Upload the HTML file within 15 minutes, once: "
+                "curl -F file=@<file.html> {url}"
+            ).format(url=upload_url)
+        )
+    return _text("\n".join(lines), structured={"presentation": summary})
+
+
+def _content_of(arguments):
+    """The HTML, the link, or an upload to come; one of them."""
+    html = arguments.get("html")
+    link = (arguments.get("link") or "").strip() or None
+    later = bool(arguments.get("upload_later"))
+    if sum((html is not None and html != "", bool(link), later)) > 1:
+        raise assistants.InputError(_("Give html, link or upload_later: one of them."))
+    return (html or None), link, later
+
+
+def _publish_presentation(user, arguments):
+    document = assistants.find_page(user, arguments.get("page_id"))
+    html, link, later = _content_of(arguments)
+    if not (html or link or later):
+        raise assistants.InputError(_("Give html, link or upload_later."))
+    presentation = presentations.create(
+        user, document, title=arguments.get("title") or "", html=html, link=link
+    )
+    try:
+        presentations.add_to_page(user, presentation)
+    except Exception:
+        presentations.remove(presentation)
+        raise
+    upload_url = presentations.upload_address(user, presentation) if later else None
+    return _presentation_summary(presentation, user, upload_url)
+
+
+def _replace_presentation(user, arguments):
+    presentation = (
+        models.Presentation.objects.select_related("document")
+        .filter(pk=_uuid_or_none(arguments.get("presentation_id")))
+        .first()
+    )
+    if presentation is None or not presentations.can_read(user, presentation):
+        raise assistants.InputError(
+            _("This presentation doesn't exist, or you can't see it.")
+        )
+    if not presentations.can_edit(user, presentation):
+        raise assistants.InputError(_("You can't edit the page of this presentation."))
+    html, link, later = _content_of(arguments)
+    title = arguments.get("title")
+    if not (html or link or later or title):
+        raise assistants.InputError(_("Give html, link, upload_later or a title."))
+    presentations.replace(user, presentation, html=html, link=link, title=title)
+    upload_url = presentations.upload_address(user, presentation) if later else None
+    return _presentation_summary(presentation, user, upload_url)
+
+
+def _list_presentations(user, arguments):
+    page_id = arguments.get("page_id")
+    if page_id:
+        pages = [str(assistants.find_page(user, page_id).pk)]
+    else:
+        pages = [page["id"] for page in assistants.editable_pages(user, limit=100)]
+    found = [
+        {
+            key: described[key]
+            for key in ("id", "title", "source", "page", "view_url", "pdf_url")
+        }
+        for described in (
+            presentations.describe(presentation, user)
+            for presentation in models.Presentation.objects.filter(
+                document_id__in=pages
+            )
+            .select_related("document", "current")
+            .order_by("-updated_at")
+        )
+    ]
+    if not found:
+        return _text(_("No presentation found."), structured={"presentations": []})
+    return _text(
+        json.dumps(found, ensure_ascii=False), structured={"presentations": found}
+    )
+
+
+def _uuid_or_none(value):
+    try:
+        return uuid.UUID(str(value))
+    except ValueError:
+        return None
+
+
+PRESENTATION_TOOLS = {
+    "publish_presentation": _publish_presentation,
+    "replace_presentation": _replace_presentation,
+    "list_presentations": _list_presentations,
+}
+
+
 def _initialize(_user, _claims, params):
     asked = params.get("protocolVersion")
     return {
@@ -240,7 +469,9 @@ def _initialize(_user, _claims, params):
             "Collaborators is where the user's teams write pages together. "
             "You can find the pages the user can edit, and add the user's "
             "input to one of them; it appears at the end of the page, in a "
-            "toggle heading with their name. Ask which page when unsure."
+            "toggle heading with their name. You can also publish an HTML "
+            "presentation in a page and replace it later at the same "
+            "address. Ask which page when unsure."
         ),
     }
 

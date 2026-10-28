@@ -200,7 +200,13 @@ def test_initialize_and_tools():
     )
     assert _rpc(token, "notifications/initialized", request_id=None).status_code == 202
     tools = _rpc(token, "tools/list").json()["result"]["tools"]
-    assert [tool["name"] for tool in tools] == ["find_pages", "add_input_to_page"]
+    assert [tool["name"] for tool in tools] == [
+        "find_pages",
+        "add_input_to_page",
+        "publish_presentation",
+        "replace_presentation",
+        "list_presentations",
+    ]
     assert _rpc(token, "nope").json()["error"]["code"] == -32601
     assert (
         APIClient().get("/mcp", HTTP_AUTHORIZATION=f"Bearer {token}").status_code == 405
