@@ -156,6 +156,10 @@ export const useChangePresentation = (id: string) => {
     },
     onSuccess: (presentation) => {
       queryClient.setQueryData([KEY_PRESENTATION, id], presentation);
+      // a new file is a new version; a link leaves none shown
+      void queryClient.invalidateQueries({
+        queryKey: [KEY_PRESENTATION, id, 'versions'],
+      });
       void queryClient.invalidateQueries({
         queryKey: [KEY_PRESENTATION_CONTENT, id],
       });
