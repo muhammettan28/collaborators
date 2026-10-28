@@ -17,6 +17,7 @@ Repository: https://github.com/suitenumerique/docs
 - `src/frontend/packages/eslint-plugin-docs/` - Custom ESLint plugin
 - `src/frontend/servers/y-provider/` - Conversion service only (Express, `POST /api/convert/`). It no longer serves any websocket
 - `src/yhub-server/` - Collaboration server: a thin TypeScript wrapper around `@y/hub` (websockets, REST routes, worker). It holds the content of the documents
+- `src/presentation-renderer/` - Collaborators: PDFs of the HTML presentations shown in pages (Chromium steps through the slides; standalone package like `src/yhub-server`, see its README)
 - `src/mail/` - Email templates (MJML)
 - `src/helm/` - Kubernetes/Helm deployment
 

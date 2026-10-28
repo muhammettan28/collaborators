@@ -97,6 +97,9 @@ Y_PROVIDER_API_KEY=yprovider-api-key
 
 DOCSPEC_API_URL=http://docspec:3000/conversion
 
+# Collaborators: PDFs of presentations (src/presentation-renderer)
+PRESENTATION_RENDERER_URL=http://presentation-renderer:3010
+
 # Theme customization
 THEME_CUSTOMIZATION_CACHE_TIMEOUT=15
 # Collaborators branding (name, logo, footer)
