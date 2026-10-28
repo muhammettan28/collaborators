@@ -34,18 +34,24 @@ const Level = ({ icon, name }: { icon: string; name: string }) => (
 export const HierarchyNote = () => {
   const { t } = useTranslation();
   const arrow = (
-    <Icon iconName="arrow_forward" $size="16px" $variation="tertiary" />
+    <Icon
+      iconName="arrow_forward"
+      $size="16px"
+      $variation="tertiary"
+      className="--collaborators--hierarchy-arrow"
+    />
   );
   return (
     <Box
       as="aside"
       role="note"
       $align="center"
-      $gap="xs"
+      $gap="sm"
       $width="100%"
       $maxWidth="680px"
       $margin={{ top: 'lg', horizontal: 'auto' }}
-      $padding={{ horizontal: 'md', vertical: 'sm' }}
+      // Collaborators: a little more air, the three parts read apart
+      $padding={{ horizontal: 'md', top: 'md', bottom: 'xs' }}
       data-testid="hierarchy-note"
       // Framed like the dashboard's notes, without being a card: nothing
       // to move, hide or close
@@ -79,7 +85,17 @@ export const HierarchyNote = () => {
         $align="center"
         $justify="center"
         $gap="2xs"
-        $css="flex-wrap: wrap;"
+        // Collaborators: on a narrow phone, one level under the other
+        $css={css`
+          flex-wrap: wrap;
+          @media (max-width: 499px) {
+            flex-direction: column;
+            gap: var(--c--globals--spacings--4xs);
+            .--collaborators--hierarchy-arrow {
+              transform: rotate(90deg);
+            }
+          }
+        `}
       >
         <Level
           icon="workspaces"
@@ -97,7 +113,7 @@ export const HierarchyNote = () => {
         />
       </Box>
       {/* One idea per row */}
-      <Box $gap="4xs" $maxWidth="600px">
+      <Box $gap="2xs" $maxWidth="600px">
         <Text $size="sm" $variation="secondary">
           {t('A workspace holds spaces, and a space holds pages.', {
             description: 'Explanation of the hierarchy, first row',
@@ -112,14 +128,24 @@ export const HierarchyNote = () => {
         <Text $size="sm" $variation="secondary">
           {t('Similarly, a space can sit in a workspace, or stay on its own.', {
             description: 'Explanation of the hierarchy, third row',
-          })}{' '}
-          <StyledLink href={GUIDE_PATH} $css="display: inline;">
-            <Text as="span" $size="sm" $theme="brand">
-              {t('Learn more', { description: 'Link to the guide' })}
-            </Text>
-          </StyledLink>
+          })}
         </Text>
       </Box>
+      {/* Collaborators: the link on a row of its own, tall enough to tap */}
+      <StyledLink
+        href={GUIDE_PATH}
+        $css={css`
+          align-items: center;
+          gap: 0.2rem;
+          min-height: 32px;
+          padding: 0 var(--c--globals--spacings--xs);
+        `}
+      >
+        <Text as="span" $size="sm" $weight="600" $theme="brand">
+          {t('Learn more', { description: 'Link to the guide' })}
+        </Text>
+        <Icon iconName="arrow_forward" $size="16px" $theme="brand" />
+      </StyledLink>
     </Box>
   );
 };
