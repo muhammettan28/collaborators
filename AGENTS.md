@@ -12,7 +12,7 @@ Repository: https://github.com/suitenumerique/docs
 
 - `src/backend/` - Django REST API (Python 3.14+)
 - `src/frontend/apps/impress/` - Main Next.js 15 application (TypeScript)
-- `src/frontend/apps/e2e/` - Playwright E2E tests
+- `src/frontend/apps/e2e/` - Playwright E2E tests (`collaborators/`: Collaborators' own, with their own config, see its README)
 - `src/frontend/packages/i18n/` - Shared i18n utilities
 - `src/frontend/packages/eslint-plugin-docs/` - Custom ESLint plugin
 - `src/frontend/servers/y-provider/` - Conversion service only (Express, `POST /api/convert/`). It no longer serves any websocket
