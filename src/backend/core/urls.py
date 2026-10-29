@@ -244,6 +244,18 @@ urlpatterns = [
                     presentations.PresentationFileView.as_view(),
                 ),
                 path(
+                    "presentations/guide/",
+                    presentations.PresentationGuideView.as_view(),
+                ),
+                path(
+                    "presentations/<uuid:pk>/pdf-file/",
+                    presentations.PresentationPdfFileView.as_view(),
+                ),
+                path(
+                    "presentations/<uuid:pk>/slides/",
+                    presentations.PresentationSlidesView.as_view(),
+                ),
+                path(
                     "presentations/<uuid:pk>/content/",
                     presentations.PresentationContentView.as_view(),
                 ),

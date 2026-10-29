@@ -11,10 +11,14 @@ the assistant registered there on its own and the person signed in and
 approved it. The token names the person (by email, as signing in does);
 without one, the answer says where to get it. What the assistant may do is
 in core.assistants: find the pages the person can edit, and add their input
-to one; and in core.presentations: publish an HTML presentation in a page,
-and replace it later at the same address.
+to one; and in core.presentations: publish an HTML presentation in a page
+(with its PDF twin), replace it later at the same address, and read how to
+make presentations for Collaborators (its guide); every file sent is
+checked against the guide, and the answer says what it misses.
 """
 
+import base64
+import binascii
 import json
 import logging
 import uuid
@@ -29,7 +33,14 @@ from django.views.decorators.http import require_http_methods
 
 import jwt
 
-from core import assistants, merging, models, presentations, registrations
+from core import (
+    assistants,
+    merging,
+    models,
+    presentation_guide,
+    presentations,
+    registrations,
+)
 from core.services import keycloak
 from core.services.converter_services import ServiceUnavailableError
 from core.services.yhub_services import YHubError
@@ -101,7 +112,13 @@ TOOLS = [
             "file hosted elsewhere (shown from there, always its current "
             "state); or, for a file too big to write out (over about "
             "200 KB), set `upload_later` and upload it within 15 minutes "
-            "with the command returned (curl -F file=@deck.html <address>)."
+            "with the command returned (curl -F file=@deck.html "
+            "-F pdf=@deck.pdf <address>). Before making one, read "
+            "presentation_guide: make its PDF at the same time (one slide "
+            "per page) and send both (`pdf_base64` or `pdf_link`), give it "
+            "print rules and a presentation card, and a time handle to a "
+            "script-driven animation. The answer lists what the file misses "
+            "of the guide: fix it with replace_presentation."
         ),
         "inputSchema": {
             "type": "object",
@@ -121,7 +138,19 @@ TOOLS = [
                 },
                 "upload_later": {
                     "type": "boolean",
-                    "description": "Or: get an address to upload the file to",
+                    "description": (
+                        "Or: get an address to upload the file (and its PDF) to"
+                    ),
+                },
+                "pdf_base64": {
+                    "type": "string",
+                    "description": (
+                        "Its PDF twin (one slide per page), base64-encoded"
+                    ),
+                },
+                "pdf_link": {
+                    "type": "string",
+                    "description": "Or: the https address of its PDF",
                 },
             },
             "required": ["page_id"],
@@ -136,8 +165,10 @@ TOOLS = [
             "a new version, at the same address: the page shows the new one "
             "at once and its PDF address gives it from then on (earlier "
             "versions stay in its history). Give `html`, `link` or "
-            "`upload_later` as for publish_presentation; `title` alone "
-            "renames it."
+            "`upload_later` as for publish_presentation, with its new PDF "
+            "(`pdf_base64` or `pdf_link`): replace both together. A PDF "
+            "alone goes with what it shows now; `title` alone renames it. "
+            "The answer lists what the file misses of presentation_guide."
         ),
         "inputSchema": {
             "type": "object",
@@ -154,7 +185,19 @@ TOOLS = [
                 },
                 "upload_later": {
                     "type": "boolean",
-                    "description": "Or: get an address to upload the file to",
+                    "description": (
+                        "Or: get an address to upload the file (and its PDF) to"
+                    ),
+                },
+                "pdf_base64": {
+                    "type": "string",
+                    "description": (
+                        "Its PDF twin (one slide per page), base64-encoded"
+                    ),
+                },
+                "pdf_link": {
+                    "type": "string",
+                    "description": "Or: the https address of its PDF",
                 },
             },
             "required": ["presentation_id"],
@@ -178,6 +221,17 @@ TOOLS = [
                 }
             },
         },
+        "annotations": {"readOnlyHint": True},
+    },
+    {
+        "name": "presentation_guide",
+        "title": "How to make presentations for Collaborators",
+        "description": (
+            "Read this before making a presentation to publish: how to make "
+            "its HTML and PDF so that its PDF matches its slides, readers "
+            "can page through it, and an animation's time bar works."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
         "annotations": {"readOnlyHint": True},
     },
 ]
@@ -343,7 +397,16 @@ def _presentation_summary(presentation, user, upload_url=None):
     described = presentations.describe(presentation, user)
     summary = {
         key: described[key]
-        for key in ("id", "title", "source", "link", "page", "view_url", "pdf_url")
+        for key in (
+            "id",
+            "title",
+            "source",
+            "link",
+            "page",
+            "view_url",
+            "pdf_url",
+            "pdf",
+        )
     }
     lines = [
         _("“{title}” in the page “{page}”.").format(
@@ -357,11 +420,37 @@ def _presentation_summary(presentation, user, upload_url=None):
         summary["upload_url"] = upload_url
         lines.append(
             _(
-                "Upload the HTML file within 15 minutes, once: "
-                "curl -F file=@<file.html> {url}"
+                "Upload the HTML file and its PDF within 15 minutes, once: "
+                "curl -F file=@<file.html> -F pdf=@<file.pdf> {url} (the "
+                "answer lists what they miss of the guide)"
             ).format(url=upload_url)
         )
+    elif described["has_content"]:
+        found = presentations.checks_of(presentation)
+        summary["checks"] = found
+        if found:
+            lines.append(
+                _("What it misses of presentation_guide (fix it and replace it):")
+            )
+            lines.extend(f"- {check}" for check in found)
+        else:
+            lines.append(_("It follows presentation_guide."))
     return _text("\n".join(lines), structured={"presentation": summary})
+
+
+def _pdf_of(arguments):
+    """Its PDF twin, given as base64 or a link; checked; or None."""
+    encoded = (arguments.get("pdf_base64") or "").strip()
+    link = (arguments.get("pdf_link") or "").strip() or None
+    if not encoded and not link:
+        return None
+    data = None
+    if encoded:
+        try:
+            data = base64.b64decode(encoded, validate=False)
+        except (binascii.Error, ValueError) as err:
+            raise assistants.InputError(_("pdf_base64 isn't valid base64.")) from err
+    return presentations.prepare_pdf(data=data, link=link)
 
 
 def _content_of(arguments):
@@ -380,7 +469,12 @@ def _publish_presentation(user, arguments):
     if not (html or link or later):
         raise assistants.InputError(_("Give html, link or upload_later."))
     presentation = presentations.create(
-        user, document, title=arguments.get("title") or "", html=html, link=link
+        user,
+        document,
+        title=arguments.get("title") or "",
+        html=html,
+        link=link,
+        pdf=_pdf_of(arguments),
     )
     try:
         presentations.add_to_page(user, presentation)
@@ -405,9 +499,14 @@ def _replace_presentation(user, arguments):
         raise assistants.InputError(_("You can't edit the page of this presentation."))
     html, link, later = _content_of(arguments)
     title = arguments.get("title")
-    if not (html or link or later or title):
-        raise assistants.InputError(_("Give html, link, upload_later or a title."))
-    presentations.replace(user, presentation, html=html, link=link, title=title)
+    pdf = _pdf_of(arguments)
+    if not (html or link or later or title or pdf):
+        raise assistants.InputError(
+            _("Give html, link, upload_later, a PDF or a title.")
+        )
+    presentations.replace(
+        user, presentation, html=html, link=link, title=title, pdf=pdf
+    )
     upload_url = presentations.upload_address(user, presentation) if later else None
     return _presentation_summary(presentation, user, upload_url)
 
@@ -446,10 +545,17 @@ def _uuid_or_none(value):
         return None
 
 
+def _presentation_guide(_user, _arguments):
+    return _text(
+        presentation_guide.GUIDE, structured={"guide": presentation_guide.GUIDE}
+    )
+
+
 PRESENTATION_TOOLS = {
     "publish_presentation": _publish_presentation,
     "replace_presentation": _replace_presentation,
     "list_presentations": _list_presentations,
+    "presentation_guide": _presentation_guide,
 }
 
 
@@ -471,7 +577,8 @@ def _initialize(_user, _claims, params):
             "input to one of them; it appears at the end of the page, in a "
             "toggle heading with their name. You can also publish an HTML "
             "presentation in a page and replace it later at the same "
-            "address. Ask which page when unsure."
+            "address: read presentation_guide first, and send its PDF with "
+            "it. Ask which page when unsure."
         ),
     }
 

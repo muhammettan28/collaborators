@@ -18,14 +18,24 @@ only ever served as text, never as a page of our own.
 
 Whoever reads the page sees its presentations; whoever edits it adds,
 replaces or removes them (and the person who uploaded a file may remove it).
-A permanent address gives a PDF of the current version, made by the
-presentation renderer (src/presentation-renderer), with a page after the
-cover saying when it was made and where to get the current one.
+A permanent address gives a PDF of the current version, with a page after
+the cover saying when it was made and where to get the current one. Best,
+its PDF twin: made with the HTML (by the AI that wrote it, printing one
+slide per page) and sent with it, stored or linked, replaced and restored
+with it; the block also shows it page by page ("Slides"). When there is
+none, or it was made for an earlier file, the presentation renderer
+(src/presentation-renderer) photographs the slides instead.
+
+core.presentation_guide tells AI assistants (and people, from the block)
+how to make files that work best here; checks_of() says what a presentation
+misses of it.
 """
 
+import base64
 import hashlib
 import html as html_lib
 import ipaddress
+import json
 import logging
 import re
 import socket
@@ -45,6 +55,7 @@ from django.utils.translation import gettext as _
 import requests
 
 from core import models, platform_settings
+from core.presentation_guide import checks
 from core.services.converter_services import YdocConverter
 from core.services.jwt_services import Audiences, JWTService
 from core.services.yhub_services import YHubService
@@ -62,6 +73,12 @@ LINK_CONTENT_TYPES = (
     "text/html",
     "application/xhtml+xml",
     "text/plain",
+    "application/octet-stream",
+    "binary/octet-stream",
+)
+PDF_CONTENT_TYPES = (
+    "application/pdf",
+    "application/x-pdf",
     "application/octet-stream",
     "binary/octet-stream",
 )
@@ -112,13 +129,27 @@ def versions_kept():
 
 
 def used_storage(user):
-    """What a person stores, in bytes: every version they uploaded."""
-    return (
-        models.PresentationVersion.objects.filter(uploaded_by=user).aggregate(
-            total=Sum("size")
-        )["total"]
-        or 0
-    )
+    """What a person stores, in bytes: every version and PDF they uploaded."""
+    files = models.PresentationVersion.objects.filter(uploaded_by=user).aggregate(
+        total=Sum("size")
+    )["total"]
+    pdfs = models.PresentationPdf.objects.filter(uploaded_by=user).aggregate(
+        total=Sum("size")
+    )["total"]
+    return (files or 0) + (pdfs or 0)
+
+
+def _check_room(user, size):
+    """Refused when the person has no room left for `size` more bytes."""
+    used = used_storage(user)
+    limit = storage_limit()
+    if used + size > limit:
+        raise PresentationError(
+            _(
+                "There isn't room: this file is {size}, and you use {used} of "
+                "your {limit} for presentations. Remove one you no longer need."
+            ).format(size=megabytes(size), used=megabytes(used), limit=megabytes(limit))
+        )
 
 
 def megabytes(size):
@@ -156,6 +187,25 @@ def read_html(data):
     if "<" not in text:
         raise PresentationError(_("This doesn't look like an HTML file."))
     return text
+
+
+def fingerprint(text):
+    """The sha256 of an HTML file, to tell when it changed."""
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def read_pdf(data):
+    """The bytes of a PDF file, refused when not one or too big."""
+    limit = settings.COLLABORATORS_PRESENTATION_PDF_MAX_BYTES
+    if not data:
+        raise PresentationError(_("The PDF is empty."))
+    if len(data) > limit:
+        raise PresentationError(
+            _("A presentation's PDF can be up to {size}.").format(size=megabytes(limit))
+        )
+    if not data.lstrip()[:5] == b"%PDF-":
+        raise PresentationError(_("This doesn't look like a PDF file."))
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -215,9 +265,10 @@ def _check_public(url):
             raise PresentationError(_("This address can't be reached."))
 
 
-def _download(url):
+def _download(url, kinds=LINK_CONTENT_TYPES, limit=None):
     """The file at a public address, following its redirects."""
-    limit = settings.COLLABORATORS_PRESENTATION_MAX_BYTES
+    pdf = kinds is PDF_CONTENT_TYPES
+    limit = limit or settings.COLLABORATORS_PRESENTATION_MAX_BYTES
     for _hop in range(MAX_REDIRECTS + 1):
         _check_public(url)
         try:
@@ -241,14 +292,22 @@ def _download(url):
                     )
                 )
             kind = response.headers.get("Content-Type", "").split(";")[0].strip()
-            if kind and kind.lower() not in LINK_CONTENT_TYPES:
-                raise PresentationError(_("This address doesn't give an HTML file."))
+            if kind and kind.lower() not in kinds:
+                raise PresentationError(
+                    _("This address doesn't give a PDF file.")
+                    if pdf
+                    else _("This address doesn't give an HTML file.")
+                )
             data = b""
             for chunk in response.iter_content(64 * 1024):
                 data += chunk
                 if len(data) > limit:
                     raise PresentationError(
-                        _("A presentation can be up to {size}.").format(
+                        _("A presentation's PDF can be up to {size}.").format(
+                            size=megabytes(limit)
+                        )
+                        if pdf
+                        else _("A presentation can be up to {size}.").format(
                             size=megabytes(limit)
                         )
                     )
@@ -272,6 +331,25 @@ def fetch_link(url, fresh=False):
     return text
 
 
+def fetch_pdf_link(url, fresh=False):
+    """A PDF hosted elsewhere, kept a couple of minutes (when small)."""
+    key = f"presentation-pdf-link:{hashlib.sha256(url.encode()).hexdigest()}"
+    if not fresh:
+        kept = cache.get(key)
+        if kept is not None:
+            return kept
+    data = read_pdf(
+        _download(
+            url,
+            kinds=PDF_CONTENT_TYPES,
+            limit=settings.COLLABORATORS_PRESENTATION_PDF_MAX_BYTES,
+        )
+    )
+    if len(data) <= LINK_CACHE_MAX_BYTES:
+        cache.set(key, data, LINK_CACHE_SECONDS)
+    return data
+
+
 # ---------------------------------------------------------------------------
 # Stored files
 
@@ -291,9 +369,23 @@ def _put(key, text):
     )
 
 
-def _get(key):
+def _put_pdf(key, data):
+    _client().put_object(
+        Bucket=default_storage.bucket_name,
+        Key=key,
+        Body=data,
+        ContentType="application/pdf",
+        ContentDisposition="attachment",
+    )
+
+
+def _get_bytes(key):
     response = _client().get_object(Bucket=default_storage.bucket_name, Key=key)
-    return response["Body"].read().decode("utf-8", errors="replace")
+    return response["Body"].read()
+
+
+def _get(key):
+    return _get_bytes(key).decode("utf-8", errors="replace")
 
 
 def _remove(key):
@@ -314,21 +406,32 @@ def _prune(presentation):
     ]
     for version in extra:
         _remove(version.file_key)
+        pdf = models.PresentationPdf.objects.filter(version=version).first()
+        if pdf and pdf.file_key:
+            _remove(pdf.file_key)
         version.delete()
 
 
-def store(user, presentation, text):
-    """A new version of a stored presentation, shown at once."""
+def _drop_pdfs(queryset):
+    """These PDFs go, with their stored files."""
+    for pdf in queryset:
+        if pdf.file_key:
+            _remove(pdf.file_key)
+        pdf.delete()
+
+
+def _drop_linked_pdfs(presentation):
+    """The PDF made for a linked file goes when the link does."""
+    _drop_pdfs(presentation.pdfs.filter(version__isnull=True))
+
+
+def store(user, presentation, text, pdf=None):
+    """
+    A new version of a stored presentation, shown at once; with its PDF
+    twin when one comes with it (a Pdf from prepare_pdf).
+    """
     size = len(text.encode())
-    used = used_storage(user)
-    limit = storage_limit()
-    if used + size > limit:
-        raise PresentationError(
-            _(
-                "There isn't room: this file is {size}, and you use {used} of "
-                "your {limit} for presentations. Remove one you no longer need."
-            ).format(size=megabytes(size), used=megabytes(used), limit=megabytes(limit))
-        )
+    _check_room(user, size + (len(pdf.data) if pdf and pdf.data else 0))
     key = f"{FOLDER}/{presentation.pk}/{uuid.uuid4()}.html"
     _put(key, text)
     with transaction.atomic():
@@ -337,20 +440,139 @@ def store(user, presentation, text):
         )
         presentation.current = version
         presentation.link_url = ""
-        presentation.save(update_fields=["current", "link_url", "updated_at"])
+        presentation.link_sha256 = ""
+        presentation.save(
+            update_fields=["current", "link_url", "link_sha256", "updated_at"]
+        )
+    _drop_linked_pdfs(presentation)
+    if pdf:
+        _save_pdf(user, presentation, pdf, version=version)
     _prune(presentation)
     return version
+
+
+# ---------------------------------------------------------------------------
+# Its PDF twin
+
+
+class Pdf:
+    """A PDF checked and ready to go with a presentation: bytes or a link."""
+
+    def __init__(self, data=None, link="", pages=None):
+        self.data = data
+        self.link = link
+        self.pages = pages
+
+
+def prepare_pdf(data=None, link=None):
+    """
+    A PDF given with a presentation, checked before anything is stored:
+    a file (bytes), or the https address of one hosted elsewhere.
+    """
+    if data and link:
+        raise PresentationError(_("Give a PDF file or a link to one, not both."))
+    url = ""
+    if link:
+        url = normalize_link(link)
+        data_read = fetch_pdf_link(url, fresh=True)
+    else:
+        data_read = read_pdf(data)
+    pages = pdf_pages(data_read)
+    return Pdf(data=None if url else data_read, link=url, pages=pages)
+
+
+def _save_pdf(user, presentation, pdf, version=None, html_sha256=""):
+    key = ""
+    if pdf.data is not None:
+        key = f"{FOLDER}/{presentation.pk}/{uuid.uuid4()}.pdf"
+        _put_pdf(key, pdf.data)
+    return models.PresentationPdf.objects.create(
+        presentation=presentation,
+        version=version,
+        file_key=key,
+        link_url=pdf.link,
+        size=len(pdf.data) if pdf.data is not None else 0,
+        pages=pdf.pages,
+        html_sha256=html_sha256,
+        uploaded_by=user if pdf.data is not None else None,
+    )
+
+
+def attach_pdf(user, presentation, pdf):
+    """
+    The PDF twin of what the presentation shows now (a Pdf from
+    prepare_pdf), in place of any it had: that of its current stored
+    version, or, for a linked one, made for the file at the link today.
+    """
+    if pdf.data is not None:
+        _check_room(user, len(pdf.data))
+    if presentation.link_url:
+        text = fetch_link(presentation.link_url, fresh=True)
+        _seen(presentation, text)
+        _drop_linked_pdfs(presentation)
+        made = _save_pdf(user, presentation, pdf, html_sha256=fingerprint(text))
+    elif presentation.current is not None:
+        _drop_pdfs(presentation.pdfs.filter(version=presentation.current))
+        made = _save_pdf(user, presentation, pdf, version=presentation.current)
+    else:
+        raise PresentationError(_("This presentation has no file yet."))
+    presentation.save(update_fields=["updated_at"])
+    return made
+
+
+def remove_pdf(presentation):
+    """What it shows now goes without its PDF (the photographed one instead)."""
+    if presentation.link_url:
+        _drop_linked_pdfs(presentation)
+    elif presentation.current is not None:
+        _drop_pdfs(presentation.pdfs.filter(version=presentation.current))
+    presentation.save(update_fields=["updated_at"])
+
+
+def twin(presentation):
+    """
+    Its PDF twin and how it stands: ("current", pdf) when made for what it
+    shows now; ("outdated", None) when one was made for an earlier file
+    (replaced without its PDF, or the linked file changed since); else
+    ("none", None).
+    """
+    if presentation.link_url:
+        pdf = presentation.pdfs.filter(version__isnull=True).first()
+        if pdf is None:
+            return "none", None
+        if (
+            pdf.html_sha256
+            and presentation.link_sha256
+            and pdf.html_sha256 != presentation.link_sha256
+        ):
+            return "outdated", None
+        return "current", pdf
+    pdf = presentation.pdfs.filter(version_id=presentation.current_id).first()
+    if presentation.current_id and pdf is not None:
+        return "current", pdf
+    if presentation.pdfs.filter(version__isnull=False).exists():
+        return "outdated", None
+    return "none", None
+
+
+def pdf_data(pdf):
+    """The bytes of a PDF twin, stored or linked."""
+    if pdf.link_url:
+        return fetch_pdf_link(pdf.link_url)
+    return _get_bytes(pdf.file_key)
 
 
 # ---------------------------------------------------------------------------
 # What people and assistants do
 
 
-def create(user, document, *, title="", html=None, link=None):
+def create(  # noqa: PLR0913  # pylint: disable=too-many-arguments
+    user, document, *, title="", html=None, link=None, pdf=None
+):
     """
     A presentation in a page the person edits: an HTML file stored here,
     a link to one hosted elsewhere, or neither yet (its file comes next,
-    with a one-time upload address).
+    with a one-time upload address); with its PDF twin (a Pdf) or not.
     """
     if not page_is_open(document) or not document.get_abilities(user).get("update"):
         raise PresentationError(_("You can't edit this page."))
@@ -360,37 +582,56 @@ def create(user, document, *, title="", html=None, link=None):
     url = normalize_link(link) if link else ""
     if url:
         text = fetch_link(url, fresh=True)
+    if pdf and text is None:
+        raise PresentationError(_("Send the HTML file with its PDF."))
     presentation = models.Presentation.objects.create(
         document=document,
         title=((title or "").strip() or title_of(text or ""))[:255],
         link_url=url,
+        link_sha256=fingerprint(text) if url else "",
         created_by=user,
     )
-    if url == "" and text is not None:
-        try:
-            store(user, presentation, text)
-        except PresentationError:
-            presentation.delete()
-            raise
+    try:
+        if url == "" and text is not None:
+            store(user, presentation, text, pdf=pdf)
+        elif url and pdf:
+            if pdf.data is not None:
+                _check_room(user, len(pdf.data))
+            _save_pdf(user, presentation, pdf, html_sha256=fingerprint(text))
+    except PresentationError:
+        remove(presentation)
+        raise
     return presentation
 
 
-def replace(user, presentation, *, html=None, link=None, title=None):
+def replace(  # noqa: PLR0913  # pylint: disable=too-many-arguments
+    user, presentation, *, html=None, link=None, title=None, pdf=None
+):
     """
     A new version at the same address: another file (stored), or another
-    link; a new title, or the new file's own.
+    link, with its PDF twin (a Pdf) or not; or only a PDF for what it shows
+    now; a new title, or the new file's own.
     """
     if html is not None and link:
         raise PresentationError(_("Give a file or a link, not both."))
     text = None
     if html is not None:
         text = read_html(html)
-        store(user, presentation, text)
+        store(user, presentation, text, pdf=pdf)
     elif link:
         url = normalize_link(link)
         text = fetch_link(url, fresh=True)
+        if pdf and pdf.data is not None:
+            _check_room(user, len(pdf.data))
+        _drop_linked_pdfs(presentation)
         presentation.link_url = url
+        presentation.link_sha256 = fingerprint(text)
         presentation.current = None
+        presentation.save()
+        if pdf:
+            _save_pdf(user, presentation, pdf, html_sha256=fingerprint(text))
+    elif pdf:
+        attach_pdf(user, presentation, pdf)
     if title is not None or text is not None:
         presentation.title = (
             (title or "").strip() or title_of(text or "") or presentation.title
@@ -406,7 +647,11 @@ def restore(presentation, version_id):
         raise PresentationError(_("This version no longer exists."))
     presentation.current = version
     presentation.link_url = ""
-    presentation.save(update_fields=["current", "link_url", "updated_at"])
+    presentation.link_sha256 = ""
+    presentation.save(
+        update_fields=["current", "link_url", "link_sha256", "updated_at"]
+    )
+    _drop_linked_pdfs(presentation)
     return presentation
 
 
@@ -414,13 +659,25 @@ def remove(presentation):
     """The presentation goes, with every stored file of it."""
     for version in presentation.versions.all():
         _remove(version.file_key)
+    for pdf in presentation.pdfs.exclude(file_key=""):
+        _remove(pdf.file_key)
     presentation.delete()
+
+
+def _seen(presentation, text):
+    """The linked file's fingerprint, kept to tell when it changed."""
+    seen = fingerprint(text)
+    if presentation.link_sha256 != seen:
+        presentation.link_sha256 = seen
+        models.Presentation.objects.filter(pk=presentation.pk).update(link_sha256=seen)
 
 
 def html_of(presentation):
     """The HTML shown now: the current stored version, or the linked file."""
     if presentation.link_url:
-        return fetch_link(presentation.link_url)
+        text = fetch_link(presentation.link_url)
+        _seen(presentation, text)
+        return text
     if presentation.current is None:
         raise PresentationError(_("This presentation has no file yet."))
     return _get(presentation.current.file_key)
@@ -505,6 +762,11 @@ def pdf_url(presentation):
     return f"{app_url()}/api/v1.0/presentations/{presentation.pk}/pdf/"
 
 
+def slides_url(presentation):
+    """Its PDF twin as it is, for the block's "Slides" tab."""
+    return f"{app_url()}/api/v1.0/presentations/{presentation.pk}/slides/"
+
+
 def page_url(document):
     """Where a page is read."""
     return f"{app_url()}/page/{document.pk}/"
@@ -513,6 +775,7 @@ def page_url(document):
 def describe(presentation, user):
     """What the block and the assistants are told of a presentation."""
     current = presentation.current
+    state, pdf = twin(presentation)
     return {
         "id": str(presentation.pk),
         "title": presentation.title,
@@ -527,6 +790,15 @@ def describe(presentation, user):
         "updated_at": presentation.updated_at.isoformat(),
         "view_url": view_url(presentation),
         "pdf_url": pdf_url(presentation),
+        # its PDF twin: "current", "outdated" (made for an earlier file) or "none"
+        "pdf": {
+            "state": state,
+            "source": ("link" if pdf.link_url else "file") if pdf else None,
+            "link": pdf.link_url if pdf else "",
+            "pages": pdf.pages if pdf else None,
+            "size": pdf.size if pdf and not pdf.link_url else None,
+            "slides_url": slides_url(presentation) if pdf else None,
+        },
         "abilities": {
             "edit": can_edit(user, presentation),
             "remove": can_remove(user, presentation),
@@ -592,26 +864,22 @@ def file_name(presentation, when=None):
     return f"{title[:80] or 'presentation'} {day.isoformat()}.pdf"
 
 
-def render_pdf(presentation, zone_name=""):
-    """The PDF of the current version, with the dated page after the cover."""
-    if not settings.PRESENTATION_RENDERER_URL:
-        raise PresentationError(_("PDFs of presentations aren't available here."))
-    text = html_of(presentation)
+def _renderer(path, payload):
+    """A call to the presentation renderer, as the backend."""
     token = JWTService().get_admin_token(audience=Audiences.PRESENTATION_RENDERER)
     try:
-        response = requests.post(
-            f"{settings.PRESENTATION_RENDERER_URL.rstrip('/')}/render",
-            json={
-                "html": text,
-                "baseUrl": presentation.link_url or None,
-                "notice": notice(presentation, zone_name=zone_name),
-            },
+        return requests.post(
+            f"{settings.PRESENTATION_RENDERER_URL.rstrip('/')}/{path}",
+            json=payload,
             headers={"Authorization": f"Bearer {token}"},
             timeout=settings.PRESENTATION_RENDERER_TIMEOUT,
         )
     except requests.RequestException as err:
         logger.exception("Presentation renderer unreachable")
         raise PresentationError(_("The PDF can't be made right now.")) from err
+
+
+def _answer(response):
     if response.status_code == 503:
         raise PresentationError(_("Many PDFs are being made; try again in a minute."))
     if not response.ok:
@@ -622,3 +890,64 @@ def render_pdf(presentation, zone_name=""):
         )
         raise PresentationError(_("The PDF can't be made right now."))
     return response.content
+
+
+def pdf_pages(data):
+    """
+    How many pages a PDF has, read by the renderer (None without one); a PDF
+    it can't open (damaged, or locked by a password) is refused.
+    """
+    if not settings.PRESENTATION_RENDERER_URL:
+        return None
+    response = _renderer("inspect", {"pdf": base64.b64encode(data).decode("ascii")})
+    if response.status_code == 422:
+        raise PresentationError(
+            _("This PDF can't be opened (damaged, or locked by a password).")
+        )
+    return json.loads(_answer(response)).get("pages")
+
+
+def render_pdf(presentation, zone_name=""):
+    """
+    The PDF of what it shows now, with the dated page after the cover: its
+    PDF twin when it has one made for it, else the slides photographed.
+    """
+    state, pdf = twin(presentation)
+    if state == "current":
+        data = pdf_data(pdf)
+        if not settings.PRESENTATION_RENDERER_URL:
+            return data
+        return _answer(
+            _renderer(
+                "notice",
+                {
+                    "pdf": base64.b64encode(data).decode("ascii"),
+                    "notice": notice(presentation, zone_name=zone_name),
+                },
+            )
+        )
+    if not settings.PRESENTATION_RENDERER_URL:
+        raise PresentationError(_("PDFs of presentations aren't available here."))
+    text = html_of(presentation)
+    return _answer(
+        _renderer(
+            "render",
+            {
+                "html": text,
+                "baseUrl": presentation.link_url or None,
+                "notice": notice(presentation, zone_name=zone_name),
+            },
+        )
+    )
+
+
+def checks_of(presentation):
+    """checks() of what a presentation shows now, and of its PDF twin."""
+    try:
+        text = html_of(presentation)
+    except PresentationError:
+        return []
+    state, pdf = twin(presentation)
+    return checks(
+        text, pdf_pages_count=pdf.pages if pdf else None, has_pdf=state == "current"
+    )

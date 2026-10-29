@@ -3917,6 +3917,8 @@ class Presentation(BaseModel):
     title = models.CharField(max_length=255, blank=True)
     # An HTML file hosted elsewhere; empty for a presentation stored here
     link_url = models.URLField(max_length=2000, blank=True)
+    # The fingerprint (sha256) of the linked file when last fetched
+    link_sha256 = models.CharField(max_length=64, blank=True)
     current = models.ForeignKey(
         "PresentationVersion",
         on_delete=models.SET_NULL,
@@ -3969,3 +3971,48 @@ class PresentationVersion(BaseModel):
 
     def __str__(self):
         return f"{self.presentation} ({self.created_at:%Y-%m-%d %H:%M})"
+
+
+class PresentationPdf(BaseModel):
+    """
+    The PDF made with a presentation, its twin: what "Export to PDF" gives,
+    and what the block's "Slides" tab shows page by page. That of a stored
+    version goes with it (replaced, restored and removed together); a linked
+    presentation has one of its own, made for the HTML at its link when it
+    was added (a fingerprint tells when that file changed since). Stored
+    here, counting against whoever uploaded it, or a link to one elsewhere.
+    """
+
+    presentation = models.ForeignKey(
+        Presentation, on_delete=models.CASCADE, related_name="pdfs"
+    )
+    # The stored version it goes with; none for a linked presentation's
+    version = models.OneToOneField(
+        PresentationVersion,
+        on_delete=models.CASCADE,
+        related_name="pdf",
+        null=True,
+        blank=True,
+    )
+    file_key = models.CharField(max_length=255, blank=True)
+    link_url = models.URLField(max_length=2000, blank=True)
+    size = models.PositiveIntegerField(default=0)
+    pages = models.PositiveIntegerField(null=True, blank=True)
+    # The fingerprint (sha256) of the HTML it was made for, when linked
+    html_sha256 = models.CharField(max_length=64, blank=True)
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="presentation_pdf_uploads",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "collaborators_presentation_pdf"
+        verbose_name = _("Presentation PDF")
+        verbose_name_plural = _("Presentation PDFs")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"PDF of {self.presentation}"

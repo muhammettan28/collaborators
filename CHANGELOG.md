@@ -13,6 +13,9 @@ and this project adheres to
 - ✨(renderer) PDFs of presentations, with a dated page after the cover
 - ✨(backend) AI assistants publish and replace presentations (MCP)
 - ✅(e2e) a browser test of presentations, apart from the upstream suite
+- ✨(backend) a presentation's PDF twin, sent and replaced with its HTML
+- ✨(frontend) presentations: Live and Slides tabs, a time bar for animations
+- ✨(backend) a guide for AIs making presentations, and checks of each file
 - ✨(docspec) handle DocSpec 4xx/5xx import errors distinctly #2552
 - 🌐(frontend) add Crowdin translator context #2785
 

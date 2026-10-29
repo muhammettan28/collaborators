@@ -206,6 +206,7 @@ def test_initialize_and_tools():
         "publish_presentation",
         "replace_presentation",
         "list_presentations",
+        "presentation_guide",
     ]
     assert _rpc(token, "nope").json()["error"]["code"] == -32601
     assert (

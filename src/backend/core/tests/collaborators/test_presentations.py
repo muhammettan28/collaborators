@@ -14,7 +14,14 @@ import pytest
 import requests
 from rest_framework.test import APIClient
 
-from core import factories, models, platform_settings, presentations, reports
+from core import (
+    factories,
+    models,
+    platform_settings,
+    presentation_guide,
+    presentations,
+    reports,
+)
 from core.services.converter_services import ServiceUnavailableError
 from core.tests.collaborators.test_assistants import (  # pylint: disable=unused-import
     _rpc,
@@ -591,3 +598,313 @@ def test_a_report_lists_the_pages_presentations():
         text = reports.page_text(page)
     assert text == f"Presentation “Q4 & beyond”: {presentations.view_url(presentation)}"
     assert json.dumps(text)
+
+
+# ---------------------------------------------------------------------------
+# PDF twins: made with the HTML, sent and replaced with it
+
+PDF = b"%PDF-1.7\n% twin\n"
+GOOD_DECK = (
+    "<!doctype html><html><head><title>Q4</title>"
+    "<style>@page { size: 1280px 720px; margin: 0 }</style>"
+    '<script type="application/json" id="collaborators-presentation">'
+    '{"kind": "slides", "slides": 3}</script></head><body>1</body></html>'
+)
+
+
+@pytest.fixture(name="pages")
+def fixture_pages():
+    """The renderer counting a PDF's pages."""
+    with mock.patch.object(presentations, "pdf_pages", return_value=3) as pages:
+        yield pages
+
+
+def _pair(client, document, html=GOOD_DECK, pdf=PDF):
+    return client.post(
+        API,
+        {
+            "document": str(document.pk),
+            "file": SimpleUploadedFile("deck.html", html.encode(), "text/html"),
+            "pdf": SimpleUploadedFile("deck.pdf", pdf, "application/pdf"),
+        },
+        format="multipart",
+    )
+
+
+@pytest.mark.usefixtures("pages")
+def test_a_presentation_and_its_pdf_go_together(storage):
+    """Stored side by side, counted, shown page by page, given as its PDF."""
+    editor = factories.UserFactory()
+    page = factories.DocumentFactory(
+        link_reach="public", link_role="reader", users=[(editor, "editor")]
+    )
+
+    response = _pair(_client(editor), page)
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["pdf"] == {
+        "state": "current",
+        "source": "file",
+        "link": "",
+        "pages": 3,
+        "size": len(PDF),
+        "slides_url": (
+            f"https://app.example.org/api/v1.0/presentations/{body['id']}/slides/"
+        ),
+    }
+    pdf_key = next(key for key in storage.files if key.endswith(".pdf"))
+    assert storage.files[pdf_key][1]["ContentType"] == "application/pdf"
+    assert presentations.used_storage(editor) == len(GOOD_DECK) + len(PDF)
+
+    slides = _client().get(f"{API}{body['id']}/slides/")
+    assert slides.status_code == 200
+    assert slides["Content-Type"] == "application/pdf"
+    assert "sandbox" in slides["Content-Security-Policy"]
+    assert slides.content == PDF
+
+    # Export to PDF: the twin with the dated page, no photographing
+    made = mock.Mock(status_code=200, ok=True, content=b"%PDF-1.7 noticed")
+    with mock.patch.object(requests, "post", return_value=made) as post:
+        exported = _client().get(f"{API}{body['id']}/pdf/?tz=Europe/Istanbul")
+    assert exported.content == b"%PDF-1.7 noticed"
+    (url,) = post.call_args.args
+    assert url == "http://renderer:3010/notice"
+    sent = post.call_args.kwargs["json"]
+    assert sent["pdf"] == "JVBERi0xLjcKJSB0d2luCg=="
+    assert "(Europe/Istanbul)" in sent["notice"]["lines"][1]["text"]
+
+
+@pytest.mark.usefixtures("pages")
+def test_a_new_file_without_its_pdf_leaves_it_out_of_date(storage):
+    """Then photographed again; the earlier pair comes back together."""
+    editor = factories.UserFactory()
+    page = factories.DocumentFactory(users=[(editor, "editor")])
+    first = _pair(_client(editor), page).json()
+    first_version = models.Presentation.objects.get().current_id
+
+    replaced = _client(editor).post(
+        f"{API}{first['id']}/file/",
+        {"file": SimpleUploadedFile("deck.html", b"<p>v2</p>")},
+        format="multipart",
+    )
+
+    assert replaced.json()["pdf"]["state"] == "outdated"
+    assert _client(editor).get(f"{API}{first['id']}/slides/").status_code == 404
+    made = mock.Mock(status_code=200, ok=True, content=b"%PDF-1.7 photographed")
+    with mock.patch.object(requests, "post", return_value=made) as post:
+        _client(editor).get(f"{API}{first['id']}/pdf/")
+    assert post.call_args.args == ("http://renderer:3010/render",)
+
+    versions = _client(editor).get(f"{API}{first['id']}/versions/").json()
+    assert [version["has_pdf"] for version in versions] == [False, True]
+    restored = (
+        _client(editor)
+        .post(f"{API}{first['id']}/versions/{first_version}/restore/")
+        .json()
+    )
+    assert restored["pdf"]["state"] == "current"
+
+    # removing it removes every file of it
+    _client(editor).delete(f"{API}{first['id']}/")
+    assert not storage.files
+
+
+@pytest.mark.usefixtures("pages")
+def test_editors_add_replace_and_remove_the_pdf_of_what_it_shows(storage):
+    """Readers can't; a new one takes the place of the old one."""
+    editor = factories.UserFactory()
+    reader = factories.UserFactory()
+    page = factories.DocumentFactory(
+        link_reach="restricted", users=[(editor, "editor"), (reader, "reader")]
+    )
+    presentation = presentations.create(editor, page, html=GOOD_DECK)
+    address = f"{API}{presentation.pk}/pdf-file/"
+
+    def send(user):
+        return _client(user).post(
+            address,
+            {"file": SimpleUploadedFile("deck.pdf", PDF, "application/pdf")},
+            format="multipart",
+        )
+
+    assert describe_state(editor, presentation) == "none"
+    assert send(reader).status_code == 403
+    assert send(editor).json()["pdf"]["state"] == "current"
+    assert send(editor).status_code == 200
+    assert models.PresentationPdf.objects.count() == 1
+    assert len([key for key in storage.files if key.endswith(".pdf")]) == 1
+
+    assert _client(editor).post(address, {}, format="multipart").status_code == 400
+    assert _client(editor).delete(address).json()["pdf"]["state"] == "none"
+    assert not [key for key in storage.files if key.endswith(".pdf")]
+
+
+def describe_state(user, presentation):
+    """How its PDF twin stands, as the block is told."""
+    presentation.refresh_from_db()
+    return presentations.describe(presentation, user)["pdf"]["state"]
+
+
+def test_pdfs_that_arent_or_cant_be_opened_are_refused(settings):
+    """Not a PDF, too big, or one the renderer can't open."""
+    settings.COLLABORATORS_PRESENTATION_PDF_MAX_BYTES = 30
+    with pytest.raises(presentations.PresentationError, match="look like a PDF"):
+        presentations.prepare_pdf(data=b"<html>")
+    with pytest.raises(presentations.PresentationError, match="up to"):
+        presentations.prepare_pdf(data=PDF + b"x" * 40)
+    locked = mock.Mock(status_code=422, ok=False)
+    with mock.patch.object(requests, "post", return_value=locked):
+        with pytest.raises(presentations.PresentationError, match="can't be opened"):
+            presentations.prepare_pdf(data=PDF)
+    counted = mock.Mock(status_code=200, ok=True, content=b'{"pages": 7}')
+    with mock.patch.object(requests, "post", return_value=counted) as post:
+        assert presentations.prepare_pdf(data=PDF).pages == 7
+    assert post.call_args.args == ("http://renderer:3010/inspect",)
+
+
+def test_a_pdf_that_doesnt_fit_leaves_nothing_stored(storage, settings, pages):
+    """The pair is checked before anything is kept."""
+    settings.COLLABORATORS_PRESENTATION_STORAGE_MB = 0
+    editor = factories.UserFactory()
+    page = factories.DocumentFactory(users=[(editor, "editor")])
+    response = _pair(_client(editor), page)
+    assert response.status_code == 400
+    assert "There isn't room" in response.json()["detail"]
+    assert not storage.files
+    assert not models.Presentation.objects.exists()
+    pages.assert_called_once()
+
+
+@mock.patch.object(socket, "getaddrinfo", _public_address)
+@pytest.mark.usefixtures("pages")
+def test_a_linked_presentations_pdf_is_out_of_date_once_its_file_changes():
+    """The fingerprint of the file it was made for, against the one seen."""
+    editor = factories.UserFactory()
+    page = factories.DocumentFactory(users=[(editor, "editor")])
+
+    def answer(url, **_kwargs):
+        if url.endswith(".pdf"):
+            return _response(body=PDF, headers={"Content-Type": "application/pdf"})
+        return _response(body=deck.encode())
+
+    deck = GOOD_DECK
+    with mock.patch.object(requests, "get", side_effect=answer):
+        presentation = presentations.create(
+            editor,
+            page,
+            link="https://example.org/deck.html",
+            pdf=presentations.prepare_pdf(link="https://example.org/deck.pdf"),
+        )
+        assert describe_state(editor, presentation) == "current"
+        assert presentations.pdf_data(presentation.pdfs.get()) == PDF
+        # nothing stored: nothing counted
+        assert presentations.used_storage(editor) == 0
+
+        deck = GOOD_DECK.replace("<body>1", "<body>2")
+        presentations.cache.clear()
+        presentations.html_of(presentation)
+        assert describe_state(editor, presentation) == "outdated"
+
+        # another link: the PDF made for the old one goes
+        presentations.replace(editor, presentation, link="https://example.org/b.html")
+        assert describe_state(editor, presentation) == "none"
+        assert not presentation.pdfs.exists()
+
+
+def test_checks_say_what_a_file_misses_of_the_guide():
+    """For the AI to fix: card, print rules, time handle, PDF."""
+    assert not presentation_guide.checks(GOOD_DECK, pdf_pages_count=3, has_pdf=True)
+    found = presentation_guide.checks(DECK)
+    assert any("no presentation card" in check for check in found)
+    assert any("no print rules" in check for check in found)
+    assert any("No PDF came with it" in check for check in found)
+    assert any(
+        "says 3 slides but its PDF has 5 pages" in check
+        for check in presentation_guide.checks(
+            GOOD_DECK, pdf_pages_count=5, has_pdf=True
+        )
+    )
+    animated = GOOD_DECK.replace(
+        '{"kind": "slides", "slides": 3}', '{"kind": "animation"}'
+    ).replace("<body>", "<body><script>requestAnimationFrame(go)</script>")
+    found = presentation_guide.checks(animated, has_pdf=True)
+    assert any("how long it lasts" in check for check in found)
+    assert any("collaboratorsTimeline" in check for check in found)
+    broken = GOOD_DECK.replace('"slides": 3}', '"slides": 3')
+    assert presentation_guide.checks(broken, has_pdf=True) == [
+        "Its presentation card isn't valid JSON."
+    ]
+
+
+@pytest.mark.usefixtures("page_update", "pages")
+def test_an_assistant_reads_the_guide_and_sends_the_pdf_with_its_html():
+    """The guide as a tool; the pair in one call; what it misses told."""
+    user = factories.UserFactory(email="ada@example.org")
+    page = factories.DocumentFactory(users=[(user, "editor")])
+
+    tools = _rpc(_token(user.email), "tools/list").json()["result"]["tools"]
+    publish = next(tool for tool in tools if tool["name"] == "publish_presentation")
+    assert "pdf_base64" in publish["inputSchema"]["properties"]
+    assert "presentation_guide" in publish["description"]
+    guide = _call(user, "presentation_guide", {})
+    assert "window.collaboratorsTimeline" in guide["content"][0]["text"]
+    assert APIClient().get(f"{API}guide/").json()["guide"] == presentation_guide.GUIDE
+
+    result = _call(
+        user,
+        "publish_presentation",
+        {
+            "page_id": str(page.pk),
+            "html": DECK,
+            "pdf_base64": "JVBERi0xLjcKJSB0d2luCg==",
+        },
+    )
+    shown = result["structuredContent"]["presentation"]
+    assert shown["pdf"]["state"] == "current"
+    assert any("no presentation card" in check for check in shown["checks"])
+    assert "What it misses of presentation_guide" in result["content"][0]["text"]
+
+    fixed = _call(
+        user,
+        "replace_presentation",
+        {
+            "presentation_id": shown["id"],
+            "html": GOOD_DECK,
+            "pdf_base64": "JVBERi0xLjcKJSB0d2luCg==",
+        },
+    )
+    assert fixed["structuredContent"]["presentation"]["checks"] == []
+    assert "It follows presentation_guide." in fixed["content"][0]["text"]
+
+    refused = _call(
+        user,
+        "replace_presentation",
+        {"presentation_id": shown["id"], "pdf_base64": "PGh0bWw+"},
+    )
+    assert refused["isError"]
+
+
+@pytest.mark.usefixtures("pages")
+def test_an_upload_address_takes_the_html_and_its_pdf(storage):
+    """Both in one go; the answer lists what they miss."""
+    editor = factories.UserFactory()
+    page = factories.DocumentFactory(users=[(editor, "editor")])
+    presentation = presentations.create(editor, page)
+    path = presentations.upload_address(editor, presentation).removeprefix(
+        "https://app.example.org"
+    )
+
+    response = APIClient().post(
+        path,
+        {
+            "file": SimpleUploadedFile("deck.html", GOOD_DECK.encode()),
+            "pdf": SimpleUploadedFile("deck.pdf", PDF),
+        },
+        format="multipart",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["pdf"]["state"] == "current"
+    assert response.json()["checks"] == []
+    assert len(storage.files) == 2

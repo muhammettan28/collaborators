@@ -859,6 +859,12 @@ class Base(Configuration):
         environ_name="COLLABORATORS_PRESENTATION_MAX_BYTES",
         environ_prefix=None,
     )
+    # The largest PDF made to go with a presentation, stored or linked
+    COLLABORATORS_PRESENTATION_PDF_MAX_BYTES = values.PositiveIntegerValue(
+        20 * MB,
+        environ_name="COLLABORATORS_PRESENTATION_PDF_MAX_BYTES",
+        environ_prefix=None,
+    )
     # The service making PDFs of presentations (src/presentation-renderer)
     PRESENTATION_RENDERER_URL = values.Value(
         "", environ_name="PRESENTATION_RENDERER_URL", environ_prefix=None
