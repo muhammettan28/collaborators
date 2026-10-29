@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { type Page, expect, test } from '@playwright/test';
@@ -59,8 +60,8 @@ const signIn = async (page: Page) => {
 };
 
 /** Past the first visit's welcome, in editing mode. */
-const openPage = async (page: Page, edit = true) => {
-  await page.goto(`${APP}/page/${pageId}/`);
+const openPage = async (page: Page, edit = true, id = pageId) => {
+  await page.goto(`${APP}/page/${id}/`);
   await expect(page.locator('.ProseMirror').first()).toBeVisible({
     timeout: 60_000,
   });
@@ -375,4 +376,187 @@ test('removing it frees the storage, and the blocks say so', async ({
     (await api(page, 'GET', `presentations/${presentationId}/`)).status(),
   ).toBe(404);
   expect((await storage()).used).toBe(before.used - held);
+});
+
+/** A page of one's own, open for editing, with an empty presentation block. */
+const newPresentationBlock = async (page: Page, title: string) => {
+  const created = await api(page, 'POST', 'documents/', { title });
+  expect(created.status(), await created.text()).toBe(201);
+  const id = ((await created.json()) as { id: string }).id;
+  await openPage(page, true, id);
+  await page.locator('.ProseMirror').first().click();
+  await page.keyboard.type('/presentation');
+  await page.keyboard.press('Enter');
+  const setup = page.getByTestId('presentation-setup');
+  await expect(setup).toBeVisible();
+  return { id, setup };
+};
+
+/** A deck printed the way an AI makes its PDF twin: one slide per page. */
+const printed = async (page: Page, file: string) => {
+  const printer = await page.context().newPage();
+  await printer.goto(`file://${path.join(DECKS, file)}`);
+  const pdf = await printer.pdf({
+    width: '1280px',
+    height: '720px',
+    printBackground: true,
+  });
+  await printer.close();
+  return pdf;
+};
+
+test('a presentation with its PDF: slides, its own PDF, kept in step', async ({
+  page,
+}) => {
+  await signIn(page);
+  await page
+    .context()
+    .grantPermissions(['clipboard-read', 'clipboard-write'], { origin: APP });
+  const { id, setup } = await newPresentationBlock(page, 'E2E twin');
+
+  // the instructions to give to one's AI
+  await setup.getByRole('button', { name: 'Copy these instructions' }).click();
+  await expect(
+    setup.getByRole('button', { name: 'Copied: paste them to your AI' }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+    'window.collaboratorsTimeline',
+  );
+
+  // the HTML and its PDF, picked together
+  const twin = await printed(page, 'twin.html');
+  const upload = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/presentations/') &&
+      response.request().method() === 'POST',
+  );
+  await setup.locator('input[type="file"]').setInputFiles([
+    {
+      name: 'twin.html',
+      mimeType: 'text/html',
+      buffer: readFileSync(path.join(DECKS, 'twin.html')),
+    },
+    { name: 'twin.pdf', mimeType: 'application/pdf', buffer: twin },
+  ]);
+  const made = (await (await upload).json()) as {
+    id: string;
+    pdf: { state: string; pages: number };
+  };
+  expect(made.pdf).toMatchObject({ state: 'current', pages: 3 });
+
+  // Live first; the Slides tab pages through the PDF
+  const live = page.getByRole('tab', { name: 'Live' });
+  await expect(live).toHaveAttribute('aria-selected', 'true');
+  await expect(frame(page).getByText('Twin slide 1')).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.getByRole('tab', { name: 'Slides' }).click();
+  const slides = page.getByTestId('presentation-slides');
+  await expect(slides.getByLabel('Slide 1 of 3')).toBeVisible({
+    timeout: 30_000,
+  });
+  await slides.getByRole('button', { name: 'Next slide' }).click();
+  await expect(slides.getByText('2 / 3')).toBeVisible();
+  await slides.getByRole('slider', { name: 'Slide' }).fill('3');
+  await expect(slides.getByLabel('Slide 3 of 3')).toBeVisible();
+  await slides.press('ArrowLeft');
+  await expect(slides.getByText('2 / 3')).toBeVisible();
+
+  // Export to PDF gives the twin itself, with the dated page second
+  const pdf = await page.request.get(
+    `${API}/presentations/${made.id}/pdf/?tz=Europe%2FIstanbul`,
+    { timeout: 60_000 },
+  );
+  expect(pdf.status()).toBe(200);
+  const exported = await pdfText(await pdf.body());
+  expect(exported.total).toBe(4);
+  expect(exported.text).toContain('Twin slide 1');
+  expect(exported.text).toContain('Twin slide 3');
+  expect(exported.text).toContain('Downloaded on');
+
+  // the editor opens it on its slides
+  await openMenu(page);
+  await page.getByText('Open on its slides').click();
+  await expect
+    .poll(async () => {
+      await openPage(page, false, id);
+      return page
+        .getByRole('tab', { name: 'Slides' })
+        .getAttribute('aria-selected');
+    })
+    .toBe('true');
+
+  // a new file without its PDF: out of date, no slides, until it comes
+  await openPage(page, true, id);
+  await openMenu(page);
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByText('Replace with another file').click();
+  await (await chooser).setFiles(path.join(DECKS, 'deck-b.html'));
+  const outdated = page.getByTestId('presentation-pdf-outdated');
+  await expect(outdated).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('tab', { name: 'Slides' })).toHaveCount(0);
+  const pdfChooser = page.waitForEvent('filechooser');
+  await outdated.getByRole('button', { name: 'Add its PDF' }).click();
+  await (
+    await pdfChooser
+  ).setFiles({
+    name: 'b.pdf',
+    mimeType: 'application/pdf',
+    buffer: await printed(page, 'deck-b.html'),
+  });
+  await expect(outdated).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByRole('tab', { name: 'Slides' })).toBeVisible();
+});
+
+test('an animation gets a time bar when its editor turns it on', async ({
+  page,
+}) => {
+  await signIn(page);
+  const { setup } = await newPresentationBlock(page, 'E2E animation');
+  await setup
+    .locator('input[type="file"]')
+    .setInputFiles(path.join(DECKS, 'animation.html'));
+  await expect(frame(page).getByText('Growing')).toBeVisible({
+    timeout: 30_000,
+  });
+
+  // off by default; offered once measured
+  const bar = page.getByTestId('presentation-time-bar');
+  await expect(bar).toHaveCount(0);
+  await expect
+    .poll(
+      async () => {
+        await openMenu(page);
+        const offered = await page.getByText('Show the time bar').isVisible();
+        await page.keyboard.press('Escape');
+        return offered;
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+  await openMenu(page);
+  await page.getByText('Show the time bar').click();
+  await expect(bar).toBeVisible();
+  await expect(bar.getByText('/ 0:06')).toBeVisible();
+
+  // paused, then moved to its middle: the animation is there
+  const pause = bar.getByRole('button', { name: 'Pause' });
+  if (await pause.isVisible()) {
+    await pause.click();
+  }
+  // a click in the slider's middle, as a person does (fill() sets the value
+  // without the events React listens to)
+  const slider = bar.getByRole('slider', { name: 'Time in the animation' });
+  const box = (await slider.boundingBox())!;
+  await slider.click({ position: { x: box.width / 2, y: box.height / 2 } });
+  await expect(bar.getByText(/^0:0[23] \/ 0:06$/)).toBeVisible();
+  const width = () =>
+    frame(page)
+      .locator('#bar')
+      .evaluate((element) => element.getBoundingClientRect().width);
+  await expect.poll(width).toBeGreaterThan(260);
+  expect(await width()).toBeLessThan(340);
+  await bar.getByRole('button', { name: 'Play' }).click();
+  await expect(bar.getByText('0:06 / 0:06')).toBeVisible({ timeout: 10_000 });
+  await expect.poll(width).toBeGreaterThan(590);
 });

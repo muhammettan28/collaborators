@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>E2E twin deck</title>
+<script type="application/json" id="collaborators-presentation">{"kind": "slides", "slides": 3}</script>
+<style>
+  @page { size: 1280px 720px; margin: 0; }
+  html,body{margin:0;height:100%;font:64px/1.3 system-ui,sans-serif}
+  .s{display:none;height:100vh;align-items:center;justify-content:center;color:#fff}
+  .s.on{display:flex}
+  @media print { .s{display:flex !important;height:720px;break-after:page} }
+</style></head><body>
+<div class="s on" style="background:#123">Twin slide 1</div>
+<div class="s" style="background:#264">Twin slide 2</div>
+<div class="s" style="background:#842">Twin slide 3</div>
+<script>
+  var i=0,s=document.querySelectorAll('.s');
+  addEventListener('keydown',function(e){var d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;var n=Math.max(0,Math.min(s.length-1,i+d));if(n!==i){s[i].classList.remove('on');i=n;s[i].classList.add('on')}});
+</script></body></html>

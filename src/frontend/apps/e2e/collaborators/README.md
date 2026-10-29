@@ -13,7 +13,11 @@ clicks through it, exports it to PDF (with the dated second page), replaces it,
 shows an earlier version again, renames it, changes its shape, shows it from a
 link, and opens it full screen. Then: pasting its address shows it again, a
 signed-out reader of a public page sees it without the menu, presenter mode
-shows it, and removing it frees the storage it used.
+shows it, and removing it frees the storage it used. A presentation sent
+with its PDF twin (printed from `decks/twin.html` during the test) gets the
+Slides tab and gives its own PDF; a new file alone leaves it out of date
+until its PDF follows. An animation (`decks/animation.html`) gets a time bar
+once its editor turns it on, and moves to where it is set.
 
 It needs:
 
