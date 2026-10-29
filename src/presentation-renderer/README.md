@@ -5,7 +5,15 @@ PDFs of the HTML presentations shown in Collaborators pages (the editor's
 calls it when a reader clicks **Export to PDF**:
 
     POST /render   {html, baseUrl?, notice}   → application/pdf
+    POST /notice   {pdf (base64), notice}     → application/pdf
+    POST /inspect  {pdf (base64)}             → {pages}
     GET  /ping                                → 200
+
+`/render` photographs the slides (below). When the presentation has its PDF
+twin (made with the HTML and sent with it), the backend calls `/notice`
+instead: the dated page is added after its cover, no browser needed. It
+calls `/inspect` when a PDF arrives, to count its pages (and refuse one that
+can't be opened: damaged, or locked by a password).
 
 ## What it does
 

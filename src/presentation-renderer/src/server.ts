@@ -6,6 +6,7 @@ import {
 } from 'node:http';
 
 import { LRUCache } from 'lru-cache';
+import { PDFDocument } from 'pdf-lib';
 
 import { isBackend } from './auth.js';
 import { capture, closeBrowser } from './capture.js';
@@ -20,15 +21,21 @@ import {
 
 // The presentation renderer: PDFs of HTML presentations, for the backend only.
 //
-//   POST /render  {html, baseUrl?, notice}  → application/pdf
-//   GET  /ping                              → 200
+//   POST /render   {html, baseUrl?, notice}  → application/pdf
+//   POST /notice   {pdf (base64), notice}    → application/pdf
+//   POST /inspect  {pdf (base64)}            → {pages}
+//   GET  /ping                               → 200
 //
-// A browser steps through the slides (capture.ts); the slides of a file are
-// kept a few minutes, so asking again only adds a fresh dated page.
+// /render: a browser steps through the slides (capture.ts); the slides of a
+// file are kept a few minutes, so asking again only adds a fresh dated page.
+// /notice: the dated page added to a PDF made with the presentation (its
+// twin), no browser needed. /inspect: how many pages a PDF has, 422 when it
+// can't be opened.
 
 interface RenderRequest {
   html?: unknown;
   baseUrl?: unknown;
+  pdf?: unknown;
   notice?: Notice;
 }
 
@@ -117,19 +124,66 @@ export const createHandler = (dependencies: Dependencies) => {
     return made;
   };
 
+  const pdfOf = async (body: RenderRequest) => {
+    if (typeof body.pdf !== 'string' || !body.pdf) {
+      throw new HttpError(400, 'No pdf');
+    }
+    try {
+      // locked ones are refused (EncryptedPDFError) along with broken ones
+      const pdf = await PDFDocument.load(Buffer.from(body.pdf, 'base64'));
+      // pdf-lib reads what it can of a damaged file: no page is no PDF
+      if (pdf.getPageCount() > 0) {
+        return pdf;
+      }
+    } catch {
+      // answered below
+    }
+    throw new HttpError(422, 'Unreadable pdf');
+  };
+
+  const sendPdf = (response: ServerResponse, pdf: Uint8Array) =>
+    response
+      .writeHead(200, {
+        'Content-Type': 'application/pdf',
+        'Content-Length': pdf.length,
+      })
+      .end(Buffer.from(pdf));
+
   return async (request: IncomingMessage, response: ServerResponse) => {
     try {
       if (request.method === 'GET' && request.url === '/ping') {
         response.writeHead(200, { 'Content-Type': 'text/plain' }).end('pong');
         return;
       }
-      if (request.method !== 'POST' || request.url !== '/render') {
+      const route = request.url ?? '';
+      if (
+        request.method !== 'POST' ||
+        !['/render', '/notice', '/inspect'].includes(route)
+      ) {
         throw new HttpError(404, 'Not found');
       }
       if (!(await dependencies.isBackend(request.headers.authorization))) {
         throw new HttpError(401, 'Unauthorized');
       }
       const body = await readJson(request);
+      if (route === '/inspect') {
+        const pages = (await pdfOf(body)).getPageCount();
+        response
+          .writeHead(200, { 'Content-Type': 'application/json' })
+          .end(JSON.stringify({ pages }));
+        return;
+      }
+      if (route === '/notice') {
+        if (!isNotice(body.notice)) {
+          throw new HttpError(400, 'No notice');
+        }
+        const twin = await (await pdfOf(body)).save();
+        sendPdf(
+          response,
+          await withNotice(twin, body.notice, dependencies.fonts()),
+        );
+        return;
+      }
       if (typeof body.html !== 'string' || !body.html.trim()) {
         throw new HttpError(400, 'No html');
       }
@@ -138,13 +192,10 @@ export const createHandler = (dependencies: Dependencies) => {
       }
       const baseUrl = typeof body.baseUrl === 'string' ? body.baseUrl : null;
       const slides = await slidesOf(body.html, baseUrl);
-      const pdf = await withNotice(slides, body.notice, dependencies.fonts());
-      response
-        .writeHead(200, {
-          'Content-Type': 'application/pdf',
-          'Content-Length': pdf.length,
-        })
-        .end(Buffer.from(pdf));
+      sendPdf(
+        response,
+        await withNotice(slides, body.notice, dependencies.fonts()),
+      );
     } catch (err) {
       const status = err instanceof HttpError ? err.status : 500;
       if (status === 500) {

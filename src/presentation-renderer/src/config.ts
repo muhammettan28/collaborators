@@ -34,7 +34,8 @@ export const config = {
   boldFontPath:
     process.env.NOTICE_BOLD_FONT_PATH ||
     '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-  maxBodyBytes: integer('MAX_BODY_BYTES', 16 * 1024 * 1024),
+  // a presentation's PDF twin comes in base64: 20 MB is about 27 MB of it
+  maxBodyBytes: integer('MAX_BODY_BYTES', 32 * 1024 * 1024),
   maxSlides: integer('MAX_SLIDES', 120),
   // Each PDF, all included; longer ones stop and give what was captured
   renderTimeoutMs: integer('RENDER_TIMEOUT_MS', 90_000),
