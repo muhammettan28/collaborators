@@ -10,14 +10,18 @@ import { Presentation, usePresentationSlides } from './api';
 type PdfModule = typeof import('pdfjs-dist');
 type PdfDocument = Awaited<ReturnType<PdfModule['getDocument']>['promise']>;
 
-/** pdf.js, loaded the first time slides are shown (it is big). */
+/**
+ * pdf.js, loaded the first time slides are shown (it is big), with its
+ * worker bundled as one (the build turns `new Worker(new URL(…))` into its
+ * own file), shared by every slides view.
+ */
 const loadPdfjs = async (): Promise<PdfModule> => {
   const pdfjs = await import('pdfjs-dist');
-  if (!pdfjs.GlobalWorkerOptions.workerSrc) {
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-      'pdfjs-dist/build/pdf.worker.min.mjs',
-      import.meta.url,
-    ).toString();
+  if (!pdfjs.GlobalWorkerOptions.workerPort) {
+    pdfjs.GlobalWorkerOptions.workerPort = new Worker(
+      new URL('./pdfWorker.ts', import.meta.url),
+      { type: 'module' },
+    );
   }
   return pdfjs;
 };
