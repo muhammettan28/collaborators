@@ -12,11 +12,15 @@ import { useDocStore } from '@/docs/doc-management';
 import { DocsBlockNoteEditor } from '../../../types';
 
 import { type AspectRatio, PresentationFrame } from './PresentationFrame';
+import { SlidesView } from './SlidesView';
 import {
+  NO_PDF,
   Presentation,
+  fetchPresentationGuide,
   megabytes,
   pdfWithZone,
   useChangePresentation,
+  useChangePresentationPdf,
   useCreatePresentation,
   usePresentation,
   usePresentationStorage,
@@ -25,7 +29,20 @@ import {
   useRestorePresentation,
 } from './api';
 
-const ACCEPT = '.html,.htm,text/html';
+// an HTML file, and its PDF twin with it or not
+const ACCEPT = '.html,.htm,text/html,.pdf,application/pdf';
+const ACCEPT_PDF = '.pdf,application/pdf';
+
+export type View = 'live' | 'slides';
+
+const isPdf = (file: File) =>
+  file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+
+/** The HTML file and its PDF among the files picked. */
+export const pairOf = (files: File[]) => ({
+  file: files.find((file) => !isPdf(file)),
+  pdf: files.find(isPdf),
+});
 
 const errorCss = css`
   color: var(--c--contextuals--content--semantic--error--primary);
@@ -55,15 +72,15 @@ const StorageLine = () => {
   );
 };
 
-/** An HTML file to send, picked from the computer. */
+/** Files to send, picked from the computer: an HTML file and its PDF. */
 const FileButton = ({
   label,
   disabled,
-  onFile,
+  onFiles,
 }: {
   label: string;
   disabled?: boolean;
-  onFile: (file: File) => void;
+  onFiles: (files: File[]) => void;
 }) => {
   const input = useRef<HTMLInputElement>(null);
   return (
@@ -72,12 +89,13 @@ const FileButton = ({
         ref={input}
         type="file"
         accept={ACCEPT}
+        multiple
         hidden
         onChange={(event) => {
-          const file = event.target.files?.[0];
+          const files = Array.from(event.target.files ?? []);
           event.target.value = '';
-          if (file) {
-            onFile(file);
+          if (files.length) {
+            onFiles(files);
           }
         }}
       />
@@ -96,11 +114,14 @@ const FileButton = ({
 /** A link to an HTML file hosted elsewhere, typed in. */
 const LinkForm = ({
   label,
+  fieldLabel,
   disabled,
   initial = '',
   onLink,
 }: {
   label: string;
+  /** What the link is of (else an HTML file) */
+  fieldLabel?: string;
   disabled?: boolean;
   initial?: string;
   onLink: (link: string) => void;
@@ -125,9 +146,13 @@ const LinkForm = ({
         <Input
           fullWidth
           type="url"
-          label={t('Link to an HTML file (https://…)', {
-            description: 'Label of the link of a presentation hosted elsewhere',
-          })}
+          label={
+            fieldLabel ??
+            t('Link to an HTML file (https://…)', {
+              description:
+                'Label of the link of a presentation hosted elsewhere',
+            })
+          }
           value={link}
           onChange={(event) => setLink(event.target.value)}
         />
@@ -148,11 +173,12 @@ const PresentationSetup = ({
   const { t } = useTranslation();
   const page = useDocStore((state) => state.currentDoc);
   const create = useCreatePresentation();
+  const [missing, setMissing] = useState(false);
 
   if (!page) {
     return null;
   }
-  const add = (fields: { file?: File; link?: string }) =>
+  const add = (fields: { file?: File; pdf?: File; link?: string }) =>
     create.mutate({ document: page.id, ...fields }, { onSuccess: onCreated });
 
   return (
@@ -171,14 +197,27 @@ const PresentationSetup = ({
       </Text>
       <Box $direction="row" $gap="xs" $align="center" $wrap="wrap">
         <FileButton
-          label={t('Upload an HTML file', {
+          label={t('Upload an HTML file (and its PDF)', {
             description: 'Button adding a presentation from a file',
           })}
           disabled={create.isPending}
-          onFile={(file) => add({ file })}
+          onFiles={(files) => {
+            const { file, pdf } = pairOf(files);
+            setMissing(!file);
+            if (file) {
+              add({ file, pdf });
+            }
+          }}
         />
         <StorageLine />
       </Box>
+      {missing && (
+        <Text $size="sm" $css={errorCss}>
+          {t('Choose the HTML file too: the PDF goes with it.', {
+            description: 'Shown when only a PDF was picked for a presentation',
+          })}
+        </Text>
+      )}
       <LinkForm
         label={t('Show it', {
           description: 'Button adding a presentation from a link',
@@ -191,11 +230,59 @@ const PresentationSetup = ({
           {create.error.message}
         </Text>
       )}
+      <GuideButton />
     </Box>
   );
 };
 
-type Panel = 'link' | 'rename' | 'versions' | 'remove' | null;
+/**
+ * "Making it with an AI?": copies the instructions for making presentations
+ * that work best here (the backend's guide), to give to one's AI.
+ */
+const GuideButton = () => {
+  const { t } = useTranslation();
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  return (
+    <Box $direction="row" $gap="xs" $align="center" $wrap="wrap">
+      <Text $size="xs" $variation="secondary">
+        {t('Making it with an AI?', {
+          description: 'Before the button copying instructions for AIs',
+        })}
+      </Text>
+      <Button
+        size="small"
+        variant="tertiary"
+        icon={<Icon iconName="content_copy" $size="16px" $color="inherit" />}
+        onClick={() => {
+          void fetchPresentationGuide()
+            .then((guide) => navigator.clipboard.writeText(guide))
+            .then(
+              () => setState('copied'),
+              () => setState('failed'),
+            );
+        }}
+      >
+        {state === 'copied'
+          ? t('Copied: paste them to your AI', {
+              description: 'Once the instructions for AIs are copied',
+            })
+          : t('Copy these instructions', {
+              description: 'Button copying instructions for AIs',
+            })}
+      </Button>
+      {state === 'failed' && (
+        <Text $size="xs" $css={errorCss}>
+          {t('They couldn’t be copied.', {
+            description: 'When copying instructions for AIs fails',
+          })}
+        </Text>
+      )}
+    </Box>
+  );
+};
+
+type Panel =
+  'link' | 'pdf-link' | 'pdf-remove' | 'rename' | 'versions' | 'remove' | null;
 
 /** Earlier stored versions, to show one again. */
 const VersionsPanel = ({ presentation }: { presentation: Presentation }) => {
@@ -216,6 +303,10 @@ const VersionsPanel = ({ presentation }: { presentation: Presentation }) => {
           <Text $size="sm" $flex={1}>
             {new Date(version.created_at).toLocaleString(i18n.language)} ·{' '}
             {megabytes(version.size)}
+            {version.has_pdf &&
+              ` · ${t('with its PDF', {
+                description: 'A stored version of a presentation with its PDF',
+              })}`}
             {version.uploaded_by && ` · ${version.uploaded_by}`}
           </Text>
           {version.current ? (
@@ -250,21 +341,36 @@ const VersionsPanel = ({ presentation }: { presentation: Presentation }) => {
 const PresentationBar = ({
   presentation,
   aspectRatio,
+  view,
+  timeBar,
+  measured,
   onFullScreen,
   onAspectRatio,
+  onView,
+  onTimeBar,
   onRemoved,
 }: {
   presentation: Presentation;
   aspectRatio: AspectRatio;
+  /** The tab it opens on, for readers */
+  view: View;
+  timeBar: boolean;
+  /** How long its animation lasts; 0 when it can't be measured */
+  measured: number;
   onFullScreen: () => void;
   onAspectRatio: (ratio: AspectRatio) => void;
+  onView: (view: View) => void;
+  onTimeBar: (timeBar: boolean) => void;
   onRemoved: () => void;
 }) => {
   const { t } = useTranslation();
   const [panel, setPanel] = useState<Panel>(null);
   const change = useChangePresentation(presentation.id);
+  const changePdf = useChangePresentationPdf(presentation.id);
   const remove = useRemovePresentation();
   const fileInput = useRef<HTMLInputElement>(null);
+  const pdfInput = useRef<HTMLInputElement>(null);
+  const hasPdf = presentation.pdf.state === 'current';
   const [title, setTitle] = useState(presentation.title);
   const editable = presentation.abilities.edit;
 
@@ -277,6 +383,59 @@ const PresentationBar = ({
       icon: <Icon iconName="upload" $size="18px" />,
       callback: () => fileInput.current?.click(),
       show: editable,
+    },
+    {
+      label: hasPdf
+        ? t('Replace its PDF', {
+            description: 'Menu item replacing the PDF of a presentation',
+          })
+        : t('Add its PDF', {
+            description: 'Menu item adding the PDF of a presentation',
+          }),
+      icon: <Icon iconName="picture_as_pdf" $size="18px" />,
+      callback: () => pdfInput.current?.click(),
+      show: editable && presentation.has_content,
+    },
+    {
+      label: t('Link to its PDF', {
+        description: 'Menu item giving the link of a presentation’s PDF',
+      }),
+      icon: <Icon iconName="add_link" $size="18px" />,
+      callback: () => setPanel('pdf-link'),
+      show: editable && presentation.has_content,
+    },
+    {
+      label: t('Remove its PDF', {
+        description: 'Menu item removing the PDF of a presentation',
+      }),
+      icon: <Icon iconName="hide_source" $size="18px" />,
+      callback: () => setPanel('pdf-remove'),
+      show: editable && hasPdf,
+    },
+    {
+      label:
+        view === 'slides'
+          ? t('Open on the live presentation', {
+              description: 'Menu item: readers first see the Live tab',
+            })
+          : t('Open on its slides', {
+              description: 'Menu item: readers first see the Slides tab',
+            }),
+      icon: <Icon iconName="tab" $size="18px" />,
+      callback: () => onView(view === 'slides' ? 'live' : 'slides'),
+      show: editable && hasPdf,
+    },
+    {
+      label: timeBar
+        ? t('Hide the time bar', {
+            description: 'Menu item hiding the time bar of an animation',
+          })
+        : t('Show the time bar', {
+            description: 'Menu item showing the time bar of an animation',
+          }),
+      icon: <Icon iconName="timer" $size="18px" />,
+      callback: () => onTimeBar(!timeBar),
+      show: editable && (measured > 0 || timeBar),
     },
     {
       label:
@@ -329,7 +488,7 @@ const PresentationBar = ({
     },
   ].filter((option) => option.show);
 
-  const error = change.error ?? remove.error;
+  const error = change.error ?? changePdf.error ?? remove.error;
 
   return (
     <Box $gap="xs" $margin={{ top: 'xs' }}>
@@ -337,12 +496,28 @@ const PresentationBar = ({
         ref={fileInput}
         type="file"
         accept={ACCEPT}
+        multiple
         hidden
         onChange={(event) => {
-          const file = event.target.files?.[0];
+          const { file, pdf } = pairOf(Array.from(event.target.files ?? []));
           event.target.value = '';
           if (file) {
-            change.mutate({ file });
+            change.mutate({ file, pdf });
+          } else if (pdf) {
+            changePdf.mutate({ file: pdf });
+          }
+        }}
+      />
+      <input
+        ref={pdfInput}
+        type="file"
+        accept={ACCEPT_PDF}
+        hidden
+        onChange={(event) => {
+          const pdf = event.target.files?.[0];
+          event.target.value = '';
+          if (pdf) {
+            changePdf.mutate({ file: pdf });
           }
         }}
       />
@@ -414,8 +589,81 @@ const PresentationBar = ({
           })}
         </Text>
       )}
+      {editable && presentation.pdf.state === 'outdated' && (
+        <Box
+          $direction="row"
+          $gap="xs"
+          $align="center"
+          $wrap="wrap"
+          data-testid="presentation-pdf-outdated"
+        >
+          <Icon iconName="warning" $size="16px" $variation="secondary" />
+          <Text $size="xs" $variation="secondary" $flex={1}>
+            {t(
+              'Its PDF is out of date: it was made for an earlier file. Until you add the new one, “Export to PDF” photographs the slides.',
+              {
+                description:
+                  'Shown to editors when a presentation’s PDF is out of date',
+              },
+            )}
+          </Text>
+          <Button
+            size="small"
+            variant="tertiary"
+            disabled={changePdf.isPending}
+            onClick={() => pdfInput.current?.click()}
+          >
+            {t('Add its PDF', {
+              description: 'Menu item adding the PDF of a presentation',
+            })}
+          </Button>
+        </Box>
+      )}
       {panel && (
         <Box $gap="xs" $css={panelCss}>
+          {panel === 'pdf-link' && (
+            <LinkForm
+              label={t('Use this PDF', {
+                description: 'Button giving the link of a presentation’s PDF',
+              })}
+              fieldLabel={t('Link to its PDF (https://…)', {
+                description: 'Label of the link of a presentation’s PDF',
+              })}
+              initial={presentation.pdf.link}
+              disabled={changePdf.isPending}
+              onLink={(link) =>
+                changePdf.mutate({ link }, { onSuccess: () => setPanel(null) })
+              }
+            />
+          )}
+          {panel === 'pdf-remove' && (
+            <Box $direction="row" $gap="xs" $align="center" $wrap="wrap">
+              <Text $size="sm" $flex={1}>
+                {t(
+                  'Remove its PDF? “Export to PDF” will photograph the slides instead, and the Slides tab goes.',
+                  {
+                    description:
+                      'Confirmation before removing the PDF of a presentation',
+                  },
+                )}
+              </Text>
+              <Button
+                size="small"
+                color="error"
+                disabled={changePdf.isPending}
+                onClick={() =>
+                  changePdf.mutate(
+                    { remove: true },
+                    { onSuccess: () => setPanel(null) },
+                  )
+                }
+              >
+                {t('Remove its PDF', {
+                  description: 'Menu item removing the PDF of a presentation',
+                })}
+              </Button>
+            </Box>
+          )}
           {panel === 'link' && (
             <LinkForm
               label={t('Show it', {
@@ -509,20 +757,32 @@ const PresentationView = ({
   presentationId,
   aspectRatio,
   title,
+  view,
+  timeBar,
   onAspectRatio,
   onTitle,
+  onView,
+  onTimeBar,
   onRemoved,
 }: {
   presentationId: string;
   aspectRatio: AspectRatio;
   title: string;
+  view: View;
+  timeBar: boolean;
   onAspectRatio: (ratio: AspectRatio) => void;
   onTitle: (title: string) => void;
+  onView: (view: View) => void;
+  onTimeBar: (timeBar: boolean) => void;
   onRemoved: () => void;
 }) => {
   const { t } = useTranslation();
   const { data: presentation, error } = usePresentation(presentationId);
   const frame = useRef<HTMLDivElement>(null);
+  // the tab shown: the one the editor chose, until the reader picks another
+  const [shown, setShown] = useState<View>(view);
+  const [measured, setMeasured] = useState(0);
+  useEffect(() => setShown(view), [view]);
 
   // the block keeps the title, for exports and search
   useEffect(() => {
@@ -559,23 +819,72 @@ const PresentationView = ({
           updated_at: '',
           view_url: '',
           pdf_url: '',
+          pdf: NO_PDF,
           abilities: { edit: false, remove: false },
         }}
         aspectRatio={aspectRatio}
       />
     );
   }
+  const hasSlides = presentation.pdf.state === 'current';
+  const slides = hasSlides && shown === 'slides';
   return (
     <Box>
-      <PresentationFrame
-        ref={frame}
-        presentation={presentation}
-        aspectRatio={aspectRatio}
-      />
+      {hasSlides && (
+        <Box
+          $direction="row"
+          $gap="2xs"
+          $margin={{ bottom: 'xs' }}
+          role="tablist"
+          aria-label={t('How to show the presentation', {
+            description: 'Label of the Live / Slides tabs of a presentation',
+          })}
+        >
+          {(['live', 'slides'] as const).map((tab) => (
+            <Button
+              key={tab}
+              size="small"
+              variant={shown === tab ? 'secondary' : 'tertiary'}
+              role="tab"
+              aria-selected={shown === tab}
+              onClick={() => setShown(tab)}
+            >
+              {tab === 'live'
+                ? t('Live', {
+                    description: 'Tab showing the presentation itself',
+                  })
+                : t('Slides', {
+                    description:
+                      'Tab showing the PDF of a presentation page by page',
+                  })}
+            </Button>
+          ))}
+        </Box>
+      )}
+      {slides ? (
+        <SlidesView
+          ref={frame}
+          presentation={presentation}
+          aspectRatio={aspectRatio}
+        />
+      ) : (
+        <PresentationFrame
+          ref={frame}
+          presentation={presentation}
+          aspectRatio={aspectRatio}
+          timeBar={timeBar}
+          onMeasured={setMeasured}
+        />
+      )}
       <PresentationBar
         presentation={presentation}
         aspectRatio={aspectRatio}
+        view={view}
+        timeBar={timeBar}
+        measured={measured}
         onAspectRatio={onAspectRatio}
+        onView={onView}
+        onTimeBar={onTimeBar}
         onRemoved={onRemoved}
         onFullScreen={() => void frame.current?.requestFullscreen?.()}
       />
@@ -595,6 +904,10 @@ export const PresentationBlock = createReactBlockSpec(
         default: '16:9' as const,
         values: ['16:9', '4:3', '1:1'] as const,
       },
+      // the tab readers see first, when it has its PDF
+      view: { default: 'live' as const, values: ['live', 'slides'] as const },
+      // the time bar of an animation, off unless the editor turns it on
+      timeBar: { default: false },
     },
   },
   {
@@ -613,8 +926,12 @@ export const PresentationBlock = createReactBlockSpec(
               presentationId={block.props.presentationId}
               aspectRatio={block.props.aspectRatio}
               title={block.props.title}
+              view={block.props.view}
+              timeBar={block.props.timeBar}
               onAspectRatio={(aspectRatio) => update({ aspectRatio })}
               onTitle={(title) => update({ title })}
+              onView={(view) => update({ view })}
+              onTimeBar={(timeBar) => update({ timeBar })}
               onRemoved={() => editor.removeBlocks([block])}
             />
           ) : editor.isEditable ? (

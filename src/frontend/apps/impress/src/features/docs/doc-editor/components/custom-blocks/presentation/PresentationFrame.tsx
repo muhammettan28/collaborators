@@ -4,6 +4,7 @@ import { css } from 'styled-components';
 
 import { Box, Loading, Text } from '@/components';
 
+import { TimeBar, useTimeline, withTimeline } from './TimeBar';
 import { Presentation, usePresentationContent } from './api';
 import { sealedDocument } from './sealedDocument';
 
@@ -47,6 +48,10 @@ interface PresentationFrameProps {
   aspectRatio?: AspectRatio;
   /** Fill the space given (the full-screen page) instead of keeping a shape */
   fill?: boolean;
+  /** Show the time bar of an animation that can be measured */
+  timeBar?: boolean;
+  /** How long its animation lasts, once measured (0: it can't be) */
+  onMeasured?: (seconds: number) => void;
 }
 
 /**
@@ -60,11 +65,17 @@ export const PresentationFrame = forwardRef<
   HTMLDivElement,
   PresentationFrameProps
 >(function PresentationFrame(
-  { presentation, aspectRatio = '16:9', fill = false },
+  { presentation, aspectRatio = '16:9', fill = false, timeBar, onMeasured },
   outerRef,
 ) {
   const { t } = useTranslation();
   const { ref, near } = useNearScreen();
+  const iframe = useRef<HTMLIFrameElement>(null);
+  const { timeline, send } = useTimeline(iframe);
+
+  useEffect(() => {
+    onMeasured?.(timeline.seconds);
+  }, [timeline.seconds, onMeasured]);
   const { data, error, isLoading } = usePresentationContent(
     near && presentation.has_content ? presentation.id : '',
     presentation.updated_at,
@@ -96,10 +107,13 @@ export const PresentationFrame = forwardRef<
     >
       {data !== undefined ? (
         <iframe
+          ref={iframe}
           title={presentation.title || t('Presentation')}
-          srcDoc={sealedDocument(
-            data,
-            presentation.source === 'link' ? presentation.link : null,
+          srcDoc={withTimeline(
+            sealedDocument(
+              data,
+              presentation.source === 'link' ? presentation.link : null,
+            ),
           )}
           // scripts run, in a sandbox of their own: no allow-same-origin
           sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
@@ -137,6 +151,9 @@ export const PresentationFrame = forwardRef<
             </Text>
           )}
         </Box>
+      )}
+      {timeBar && data !== undefined && timeline.seconds > 0 && (
+        <TimeBar timeline={timeline} send={send} />
       )}
     </Box>
   );

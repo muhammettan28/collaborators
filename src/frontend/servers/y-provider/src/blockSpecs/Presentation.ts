@@ -13,6 +13,8 @@ const presentationPropSchema = {
     default: '16:9' as const,
     values: ['16:9', '4:3', '1:1'] as const,
   },
+  view: { default: 'live' as const, values: ['live', 'slides'] as const },
+  timeBar: { default: false as boolean },
 } as const;
 
 const presentationConfig = {

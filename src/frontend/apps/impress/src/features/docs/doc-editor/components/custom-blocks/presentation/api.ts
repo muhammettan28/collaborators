@@ -2,6 +2,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { APIError, errorCauses, fetchAPI } from '@/api';
 
+/**
+ * The PDF made with a presentation, its twin: what "Export to PDF" gives,
+ * and what the "Slides" tab shows. "outdated" when made for an earlier file.
+ */
+export interface PresentationPdf {
+  state: 'current' | 'outdated' | 'none';
+  source: 'file' | 'link' | null;
+  link: string;
+  pages: number | null;
+  size: number | null;
+  slides_url: string | null;
+}
+
 /** An HTML presentation shown in a page (the backend's core/presentations.py). */
 export interface Presentation {
   id: string;
@@ -19,6 +32,7 @@ export interface Presentation {
   view_url: string;
   /** Its PDF, always of the current version */
   pdf_url: string;
+  pdf: PresentationPdf;
   abilities: { edit: boolean; remove: boolean };
 }
 
@@ -28,6 +42,7 @@ export interface PresentationVersion {
   created_at: string;
   uploaded_by: string;
   current: boolean;
+  has_pdf: boolean;
 }
 
 export interface PresentationStorage {
@@ -45,6 +60,17 @@ export interface PresentationStorage {
 export const KEY_PRESENTATION = 'presentation';
 export const KEY_PRESENTATION_CONTENT = 'presentation-content';
 export const KEY_PRESENTATION_STORAGE = 'presentation-storage';
+export const KEY_PRESENTATION_SLIDES = 'presentation-slides';
+
+/** A presentation that has no PDF twin, as the block shows before it is read */
+export const NO_PDF: PresentationPdf = {
+  state: 'none',
+  source: null,
+  link: '',
+  pages: null,
+  size: null,
+  slides_url: null,
+};
 
 /** The message the backend gave, else a fallback. */
 const failure = async (response: Response, message: string) => {
@@ -100,13 +126,19 @@ export const useCreatePresentation = () => {
   return useMutation<
     Presentation,
     APIError,
-    { document: string; file?: File; link?: string; title?: string }
+    {
+      document: string;
+      file?: File;
+      pdf?: File;
+      link?: string;
+      title?: string;
+    }
   >({
-    mutationFn: async ({ document, file, link, title }) => {
+    mutationFn: async ({ document, file, pdf, link, title }) => {
       const response = file
         ? await fetchAPI('presentations/', {
             method: 'POST',
-            body: formOf({ document, file, title }),
+            body: formOf({ document, file, pdf, title }),
             withoutContentType: true,
           })
         : await fetchAPI('presentations/', {
@@ -136,13 +168,13 @@ export const useChangePresentation = (id: string) => {
   return useMutation<
     Presentation,
     APIError,
-    { file?: File; link?: string; title?: string }
+    { file?: File; pdf?: File; link?: string; title?: string }
   >({
-    mutationFn: async ({ file, link, title }) => {
+    mutationFn: async ({ file, pdf, link, title }) => {
       const response = file
         ? await fetchAPI(`presentations/${id}/file/`, {
             method: 'POST',
-            body: formOf({ file }),
+            body: formOf({ file, pdf }),
             withoutContentType: true,
           })
         : await fetchAPI(`presentations/${id}/`, {
@@ -166,8 +198,81 @@ export const useChangePresentation = (id: string) => {
       void queryClient.invalidateQueries({
         queryKey: [KEY_PRESENTATION_STORAGE],
       });
+      void queryClient.invalidateQueries({
+        queryKey: [KEY_PRESENTATION_SLIDES, id],
+      });
     },
   });
+};
+
+/** Its PDF twin: a file or a link to one, in place of any; or none. */
+export const useChangePresentationPdf = (id: string) => {
+  const queryClient = useQueryClient();
+  return useMutation<
+    Presentation,
+    APIError,
+    { file?: File; link?: string; remove?: boolean }
+  >({
+    mutationFn: async ({ file, link, remove }) => {
+      const address = `presentations/${id}/pdf-file/`;
+      const response = remove
+        ? await fetchAPI(address, { method: 'DELETE' })
+        : file
+          ? await fetchAPI(address, {
+              method: 'POST',
+              body: formOf({ file }),
+              withoutContentType: true,
+            })
+          : await fetchAPI(address, {
+              method: 'POST',
+              body: JSON.stringify({ link }),
+            });
+      if (!response.ok) {
+        throw await failure(response, 'Failed to change the PDF');
+      }
+      return (await response.json()) as Presentation;
+    },
+    onSuccess: (presentation) => {
+      queryClient.setQueryData([KEY_PRESENTATION, id], presentation);
+      void queryClient.invalidateQueries({
+        queryKey: [KEY_PRESENTATION, id, 'versions'],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [KEY_PRESENTATION_SLIDES, id],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [KEY_PRESENTATION_STORAGE],
+      });
+    },
+  });
+};
+
+/** Its PDF twin's bytes, for the "Slides" tab. */
+export const usePresentationSlides = (
+  id: string,
+  version: string,
+  enabled: boolean,
+) =>
+  useQuery<ArrayBuffer, APIError>({
+    queryKey: [KEY_PRESENTATION_SLIDES, id, version],
+    queryFn: async () => {
+      const response = await fetchAPI(`presentations/${id}/slides/`);
+      if (!response.ok) {
+        throw await failure(response, 'Failed to read the slides');
+      }
+      return response.arrayBuffer();
+    },
+    enabled: enabled && !!id,
+    staleTime: 5 * 60_000,
+  });
+
+/** How to make presentations for Collaborators, to give to one's AI. */
+export const fetchPresentationGuide = async () => {
+  const response = await fetchAPI('presentations/guide/');
+  if (!response.ok) {
+    throw await failure(response, 'Failed to read the instructions');
+  }
+  return ((await response.json()) as { guide: string }).guide;
 };
 
 export const useRemovePresentation = () => {
@@ -221,6 +326,9 @@ export const useRestorePresentation = (id: string) => {
       void queryClient.invalidateQueries({ queryKey: [KEY_PRESENTATION, id] });
       void queryClient.invalidateQueries({
         queryKey: [KEY_PRESENTATION_CONTENT, id],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [KEY_PRESENTATION_SLIDES, id],
       });
     },
   });
