@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>E2E script animation</title>
+<script type="application/json" id="collaborators-presentation">{"kind": "animation", "seconds": 5}</script>
+<style>
+  @page { size: 1280px 720px; margin: 0; }
+  html,body{margin:0;height:100%;background:#123;color:#fff;font:48px system-ui,sans-serif}
+  #bar{height:80px;width:0;background:#8ef}
+</style></head><body><p>Moving</p><div id="bar"></div>
+<script>
+(function () {
+  var DUR = 5, t = 0, on = false, last = 0;
+  var bar = document.getElementById('bar');
+  var draw = function () { bar.style.width = (t / DUR) * 500 + 'px'; };
+  var tick = function (now) {
+    if (on) {
+      t = Math.min(DUR, t + (now - (last || now)) / 1000);
+      if (t >= DUR) { on = false; }
+    }
+    last = now;
+    draw();
+    requestAnimationFrame(tick);
+  };
+  // its clock starts late, as one waiting for its fonts does
+  setTimeout(function () { on = true; last = 0; }, 1500);
+  window.collaboratorsTimeline = {
+    duration: DUR,
+    seek: function (s) { t = Math.max(0, Math.min(DUR, s)); last = 0; draw(); },
+    play: function () { if (t >= DUR) { t = 0; } on = true; last = 0; },
+    pause: function () { on = false; },
+    get time() { return t; },
+    get playing() { return on; },
+  };
+  requestAnimationFrame(tick);
+})();
+</script></body></html>

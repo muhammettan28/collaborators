@@ -30,6 +30,8 @@ and this project adheres to
 
 - 🔒️(backend) bind comment thread to the path document on creation #2838
 - 🐛(backend) one inbox entry per person when several groups mention them
+- 🐛(frontend) the time bar follows a script animation's own clock
+- 🐛(frontend) the Slides tab keeps the slide shown while its PDF loads
 
 ## [v6.0.1] - 2026-10-15
 

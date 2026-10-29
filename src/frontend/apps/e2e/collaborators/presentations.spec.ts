@@ -560,3 +560,59 @@ test('an animation gets a time bar when its editor turns it on', async ({
   await expect(bar.getByText('0:06 / 0:06')).toBeVisible({ timeout: 10_000 });
   await expect.poll(width).toBeGreaterThan(590);
 });
+
+test('a script-driven animation moves with its handle, at its own time', async ({
+  page,
+}) => {
+  await signIn(page);
+  const { setup } = await newPresentationBlock(page, 'E2E script animation');
+  await setup
+    .locator('input[type="file"]')
+    .setInputFiles(path.join(DECKS, 'script-animation.html'));
+  await expect(frame(page).getByText('Moving')).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect
+    .poll(
+      async () => {
+        await openMenu(page);
+        const offered = await page.getByText('Show the time bar').isVisible();
+        await page.keyboard.press('Escape');
+        return offered;
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+  await openMenu(page);
+  await page.getByText('Show the time bar').click();
+  const bar = page.getByTestId('presentation-time-bar');
+  await expect(bar.getByText('/ 0:05')).toBeVisible();
+
+  // the bar says where the file is, though its clock started late
+  const slider = bar.getByRole('slider', { name: 'Time in the animation' });
+  const fileTime = () =>
+    frame(page)
+      .locator('body')
+      .evaluate(
+        () =>
+          (window as unknown as { collaboratorsTimeline: { time: number } })
+            .collaboratorsTimeline.time,
+      );
+  await bar.getByRole('button', { name: 'Pause' }).click();
+  await expect(bar.getByRole('button', { name: 'Play' })).toBeVisible();
+  await expect
+    .poll(async () =>
+      Math.abs(Number(await slider.inputValue()) - (await fileTime())),
+    )
+    .toBeLessThan(0.3);
+
+  // moved to its middle, then played to its end, where it stops
+  const box = (await slider.boundingBox())!;
+  await slider.click({ position: { x: box.width / 2, y: box.height / 2 } });
+  await expect.poll(fileTime).toBeGreaterThan(2);
+  expect(await fileTime()).toBeLessThan(3);
+  await bar.getByRole('button', { name: 'Play' }).click();
+  await expect(bar.getByText('0:05 / 0:05')).toBeVisible({ timeout: 10_000 });
+  await expect(bar.getByRole('button', { name: 'Play' })).toBeVisible();
+  expect(await fileTime()).toBe(5);
+});

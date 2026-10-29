@@ -96,7 +96,9 @@ export const SlidesView = forwardRef<
           return;
         }
         setPdf(loaded);
-        setPage(1);
+        // where the reader went while it loaded, if the PDF has it
+        const pages = loaded.numPages;
+        setPage((current) => Math.min(current, pages));
       } catch {
         if (!cancelled) {
           setFailed(true);

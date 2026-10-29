@@ -81,8 +81,15 @@ window.collaboratorsTimeline = {
   seek(seconds) { /* show the moment at that second, paused */ },
   play() { /* play on from there */ },
   pause() { /* stop where it is */ },
+  get time() { return t; },      // optional: the second it shows now
+  get playing() { return on; },  // optional: whether it plays
 };
 ```
+
+Give `time` and `playing` when its clock doesn't start as the file opens
+(it waits for its fonts, say), so the time bar shows exactly where it is.
+With a handle, let it stop at its end rather than loop: the time bar plays
+it once, and its play button starts it again from the beginning.
 
 ## 6. What it can't do
 

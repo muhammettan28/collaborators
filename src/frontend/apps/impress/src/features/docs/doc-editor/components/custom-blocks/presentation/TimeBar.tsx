@@ -12,8 +12,9 @@ import { Box, Icon, Text } from '@/components';
 // animation lasts from what the browser knows of its animations (CSS
 // animations and transitions, element.animate()), or asks the file's own
 // handle (window.collaboratorsTimeline, see the backend's guide) for one
-// driven by a script; one that can't be measured (endless, or a script
-// without a handle) says 0 seconds, and no time bar is offered.
+// driven by a script (and where it is, when the handle says so); one that
+// can't be measured (endless, or a script without a handle) says 0 seconds,
+// and no time bar is offered.
 
 export const TIME_MESSAGE = 'collaborators:time';
 
@@ -23,10 +24,15 @@ const HELPER = `(function () {
   // its time counts from when its first animation started
   var origin = null, offset = 0, since = 0, playing = true, sent = '';
   var now = function () { return performance.now(); };
-  var clock = function () { return offset + (playing ? (now() - since) / 1000 : 0); };
   var handle = function () {
     var h = window.collaboratorsTimeline;
     return h && typeof h.seek === 'function' && isFinite(+h.duration) && +h.duration > 0 ? h : null;
+  };
+  // a handle may say where it is (its own clock may not start at load)
+  var clock = function () {
+    var h = handle();
+    if (h && h.time != null && isFinite(+h.time)) { return +h.time; }
+    return offset + (playing ? (now() - since) / 1000 : 0);
   };
   var animations = function () {
     var list = document.getAnimations ? document.getAnimations() : [];
@@ -75,6 +81,8 @@ const HELPER = `(function () {
   };
   var report = function () {
     var seconds = length();
+    var h = handle();
+    if (h && typeof h.playing === 'boolean') { playing = h.playing; }
     if (seconds && playing && clock() >= seconds) { offset = seconds; playing = false; }
     var time = Math.min(clock(), seconds);
     var message = { type: TYPE, seconds: seconds, time: time, playing: playing };
