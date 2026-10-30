@@ -22,15 +22,22 @@ export const DocsEditorStyle = createGlobalStyle`
   }
 
   /* A Loop table is never shown as a selected block: editing it would keep
-     the whole table blue. Its active cell is highlighted instead. */
+     the whole table blue. Its active cell is highlighted instead. Nor is a
+     presentation: a click in it (a tab, the time bar) would tint all of it. */
   .bn-block-content[data-content-type='loopTable'].ProseMirror-selectednode,
   .ProseMirror-selectednode > .bn-block-content[data-content-type='loopTable'],
   .bn-block-content[data-content-type='loopTable'].ProseMirror-selectednode > *,
-  .ProseMirror-selectednode > .bn-block-content[data-content-type='loopTable'] > * {
+  .ProseMirror-selectednode > .bn-block-content[data-content-type='loopTable'] > *,
+  .bn-block-content[data-content-type='presentation'].ProseMirror-selectednode,
+  .ProseMirror-selectednode > .bn-block-content[data-content-type='presentation'],
+  .bn-block-content[data-content-type='presentation'].ProseMirror-selectednode > *,
+  .ProseMirror-selectednode > .bn-block-content[data-content-type='presentation'] > * {
     outline: none !important;
   }
   .bn-block-content[data-content-type='loopTable'].ProseMirror-selectednode > *::after,
-  .ProseMirror-selectednode > .bn-block-content[data-content-type='loopTable'] > *::after {
+  .ProseMirror-selectednode > .bn-block-content[data-content-type='loopTable'] > *::after,
+  .bn-block-content[data-content-type='presentation'].ProseMirror-selectednode > *::after,
+  .ProseMirror-selectednode > .bn-block-content[data-content-type='presentation'] > *::after {
     content: none !important;
   }
 

@@ -444,9 +444,9 @@ test('a presentation with its PDF: slides, its own PDF, kept in step', async ({
   };
   expect(made.pdf).toMatchObject({ state: 'current', pages: 3 });
 
-  // Live first; the Slides tab pages through the PDF
-  const live = page.getByRole('tab', { name: 'Live' });
-  await expect(live).toHaveAttribute('aria-selected', 'true');
+  // Motion first; the Slides tab pages through the PDF
+  const motion = page.getByRole('tab', { name: 'Motion' });
+  await expect(motion).toHaveAttribute('aria-selected', 'true');
   await expect(frame(page).getByText('Twin slide 1')).toBeVisible({
     timeout: 30_000,
   });
@@ -462,6 +462,17 @@ test('a presentation with its PDF: slides, its own PDF, kept in step', async ({
   await slides.press('ArrowLeft');
   await expect(slides.getByText('2 / 3')).toBeVisible();
 
+  // a click in it doesn't tint the whole block, as a selected block would be
+  await slides.click({ position: { x: 40, y: 40 } });
+  await expect
+    .poll(() =>
+      page
+        .locator('.bn-block-content[data-content-type="presentation"] > *')
+        .first()
+        .evaluate((element) => getComputedStyle(element, '::after').content),
+    )
+    .toBe('none');
+
   // Export to PDF gives the twin itself, with the dated page second
   const pdf = await page.request.get(
     `${API}/presentations/${made.id}/pdf/?tz=Europe%2FIstanbul`,
@@ -476,7 +487,7 @@ test('a presentation with its PDF: slides, its own PDF, kept in step', async ({
 
   // the editor opens it on its slides
   await openMenu(page);
-  await page.getByText('Open on its slides').click();
+  await page.getByText('Open on the Slides tab').click();
   await expect
     .poll(async () => {
       await openPage(page, false, id);

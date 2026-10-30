@@ -415,10 +415,10 @@ const PresentationBar = ({
     {
       label:
         view === 'slides'
-          ? t('Open on the live presentation', {
-              description: 'Menu item: readers first see the Live tab',
+          ? t('Open on the Motion tab', {
+              description: 'Menu item: readers first see the Motion tab',
             })
-          : t('Open on its slides', {
+          : t('Open on the Slides tab', {
               description: 'Menu item: readers first see the Slides tab',
             }),
       icon: <Icon iconName="tab" $size="18px" />,
@@ -837,7 +837,7 @@ const PresentationView = ({
           $margin={{ bottom: 'xs' }}
           role="tablist"
           aria-label={t('How to show the presentation', {
-            description: 'Label of the Live / Slides tabs of a presentation',
+            description: 'Label of the Motion / Slides tabs of a presentation',
           })}
         >
           {(['live', 'slides'] as const).map((tab) => (
@@ -850,8 +850,9 @@ const PresentationView = ({
               onClick={() => setShown(tab)}
             >
               {tab === 'live'
-                ? t('Live', {
-                    description: 'Tab showing the presentation itself',
+                ? t('Motion', {
+                    description:
+                      'Tab showing the presentation itself, as it moves',
                   })
                 : t('Slides', {
                     description:

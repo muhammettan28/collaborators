@@ -14,7 +14,7 @@ and this project adheres to
 - ✨(backend) AI assistants publish and replace presentations (MCP)
 - ✅(e2e) a browser test of presentations, apart from the upstream suite
 - ✨(backend) a presentation's PDF twin, sent and replaced with its HTML
-- ✨(frontend) presentations: Live and Slides tabs, a time bar for animations
+- ✨(frontend) presentations: Motion and Slides tabs, a time bar for animations
 - ✨(backend) a guide for AIs making presentations, and checks of each file
 - ✨(docspec) handle DocSpec 4xx/5xx import errors distinctly #2552
 - 🌐(frontend) add Crowdin translator context #2785
@@ -32,6 +32,7 @@ and this project adheres to
 - 🐛(backend) one inbox entry per person when several groups mention them
 - 🐛(frontend) the time bar follows a script animation's own clock
 - 🐛(frontend) the Slides tab keeps the slide shown while its PDF loads
+- 💄(frontend) a click in a presentation no longer tints the whole block
 
 ## [v6.0.1] - 2026-10-15
 
