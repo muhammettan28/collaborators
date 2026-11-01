@@ -22,8 +22,12 @@ import {
 } from '@/features/auth';
 import { Footer } from '@/features/footer';
 import {
-  InvitationInfo,
+  InvitationBundleCard,
+  KIND_ICONS,
+} from '@/features/invitations/InvitationBundleCard';
+import {
   invitationLogoUrl,
+  isInvitationBundle,
   useAcceptInvitation,
   useInvitationInfo,
 } from '@/features/invitations/api';
@@ -37,16 +41,11 @@ import { safeSessionStorage } from '@/utils/storages';
 /** Set when leaving to sign in from here: accept once back, signed in. */
 const ACCEPT_AFTER_SIGN_IN = 'collaborators-accept-invitation';
 
-const KIND_ICONS: Record<InvitationInfo['kind'], string> = {
-  workspace: 'workspaces',
-  space: 'folder',
-  page: 'description',
-};
-
 /**
  * /invite/?token=…: where an invitation by email leads. It shows what one is
  * invited to (its logo and name) and the ways to sign up or sign in; signed
  * in, it accepts the invitation and opens what it was for.
+ * Collaborators: the link of invitations sent together lists them all.
  */
 const Page: NextPageWithLayout = () => {
   const { t } = useTranslation();
@@ -56,7 +55,9 @@ const Page: NextPageWithLayout = () => {
   const { isSmallMobile } = useResponsiveStore();
   const token =
     typeof router.query.token === 'string' ? router.query.token : '';
-  const { data: info, isLoading, isError } = useInvitationInfo(token);
+  const { data, isLoading, isError, refetch } = useInvitationInfo(token);
+  const bundle = data && isInvitationBundle(data) ? data : undefined;
+  const info = data && !isInvitationBundle(data) ? data : undefined;
   const { user, authenticated, isAuthLoading } = useAuth();
   const { data: config } = useConfig();
   const accept = useAcceptInvitation();
@@ -65,6 +66,14 @@ const Page: NextPageWithLayout = () => {
   const tried = useRef(false);
   const providers = config?.COLLABORATORS_SIGNIN_PROVIDERS ?? [];
   const withPassword = !!config?.COLLABORATORS_SIGNIN_PASSWORD;
+
+  const onError = () =>
+    toast(
+      t('The invitation could not be accepted.', {
+        description: 'Toast when accepting an invitation failed',
+      }),
+      VariantType.ERROR,
+    );
 
   const onAccept = () =>
     accept.mutate(token, {
@@ -82,19 +91,35 @@ const Page: NextPageWithLayout = () => {
           );
         }
       },
-      onError: () =>
-        toast(
-          t('The invitation could not be accepted.', {
-            description: 'Toast when accepting an invitation failed',
-          }),
-          VariantType.ERROR,
-        ),
+      onError,
+    });
+
+  // Invitations sent together: one (its token) or all (the link's), then
+  // the list shows what they open
+  const onAcceptInBundle = (acceptToken = token) =>
+    accept.mutate(acceptToken, {
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: [KEY_AUTH] });
+        await refetch();
+      },
+      onError,
     });
 
   // Back from signing in for this invitation: accept it straight away.
   // Collaborators: already used by the one signed in (a newcomer's account
   // takes their invitations when it is made): open what it was to
   useEffect(() => {
+    if (
+      bundle &&
+      !tried.current &&
+      authenticated &&
+      safeSessionStorage.getItem(ACCEPT_AFTER_SIGN_IN) === token
+    ) {
+      tried.current = true;
+      safeSessionStorage.removeItem(ACCEPT_AFTER_SIGN_IN);
+      onAcceptInBundle();
+      return;
+    }
     if (
       tried.current ||
       !authenticated ||
@@ -109,7 +134,7 @@ const Page: NextPageWithLayout = () => {
     safeSessionStorage.removeItem(ACCEPT_AFTER_SIGN_IN);
     onAccept();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authenticated, info, token]);
+  }, [authenticated, info, bundle, token]);
 
   const signInWith = (provider?: string) => {
     safeSessionStorage.setItem(ACCEPT_AFTER_SIGN_IN, token);
@@ -127,6 +152,77 @@ const Page: NextPageWithLayout = () => {
       }[info.kind]
     : '';
   const title = t('Invitation', { description: 'Title of the invite page' });
+
+  const signedInAs = (
+    <Text $size="xs" $variation="secondary" $textAlign="center">
+      <Trans
+        i18nKey="Signed in as <strong>{{email}}</strong>."
+        values={{ email: user?.email ?? '' }}
+        tOptions={{
+          description: 'Who accepts, on the invite page',
+        }}
+        components={{ strong: <strong /> }}
+      />{' '}
+      <Box
+        as="button"
+        type="button"
+        onClick={() => gotoLogout()}
+        $display="inline"
+        $css={css`
+          border: none;
+          background: none;
+          padding: 0;
+          color: var(--c--contextuals--content--semantic--brand--primary);
+          text-decoration: underline;
+          cursor: pointer;
+          font: inherit;
+        `}
+      >
+        {t('Not you?', {
+          description: 'Link signing out on the invite page',
+        })}
+      </Box>
+    </Text>
+  );
+
+  const signIn = (
+    <Box $gap="xs" $width="100%">
+      <Text $size="sm" $textAlign="center">
+        {t('Sign up or sign in to join: you will be in right away.', {
+          description: 'Invite page, signed out',
+        })}
+      </Text>
+      {providers.map((provider) => (
+        <Button
+          key={provider}
+          fullWidth
+          variant="secondary"
+          icon={<ProviderLogo provider={provider} />}
+          onClick={() => signInWith(provider)}
+          data-testid={`invite-${provider}`}
+        >
+          {t('Continue with {{provider}}', {
+            description: 'Button signing in with an identity provider',
+            provider: PROVIDER_NAMES[provider] ?? provider,
+          })}
+        </Button>
+      ))}
+      {withPassword && (
+        <Button fullWidth variant="tertiary" onClick={() => signInWith()}>
+          {t('Use a test account', {
+            description:
+              'Button signing in with a development account and password',
+          })}
+        </Button>
+      )}
+      <Text $size="xs" $variation="secondary" $textAlign="center">
+        {t(
+          'No password to remember: an account you already have signs you in. The first time, it creates your Collaborators account.',
+          { description: 'Explanation under the sign-in buttons' },
+        )}
+      </Text>
+    </Box>
+  );
 
   return (
     <>
@@ -274,83 +370,23 @@ const Page: NextPageWithLayout = () => {
                       description: 'Button accepting an invitation',
                     })}
                   </Button>
-                  <Text $size="xs" $variation="secondary" $textAlign="center">
-                    <Trans
-                      i18nKey="Signed in as <strong>{{email}}</strong>."
-                      values={{ email: user?.email ?? '' }}
-                      tOptions={{
-                        description: 'Who accepts, on the invite page',
-                      }}
-                      components={{ strong: <strong /> }}
-                    />{' '}
-                    <Box
-                      as="button"
-                      type="button"
-                      onClick={() => gotoLogout()}
-                      $display="inline"
-                      $css={css`
-                        border: none;
-                        background: none;
-                        padding: 0;
-                        color: var(
-                          --c--contextuals--content--semantic--brand--primary
-                        );
-                        text-decoration: underline;
-                        cursor: pointer;
-                        font: inherit;
-                      `}
-                    >
-                      {t('Not you?', {
-                        description: 'Link signing out on the invite page',
-                      })}
-                    </Box>
-                  </Text>
+                  {signedInAs}
                 </Box>
               ) : (
-                <Box $gap="xs" $width="100%">
-                  <Text $size="sm" $textAlign="center">
-                    {t(
-                      'Sign up or sign in to join: you will be in right away.',
-                      { description: 'Invite page, signed out' },
-                    )}
-                  </Text>
-                  {providers.map((provider) => (
-                    <Button
-                      key={provider}
-                      fullWidth
-                      variant="secondary"
-                      icon={<ProviderLogo provider={provider} />}
-                      onClick={() => signInWith(provider)}
-                      data-testid={`invite-${provider}`}
-                    >
-                      {t('Continue with {{provider}}', {
-                        description:
-                          'Button signing in with an identity provider',
-                        provider: PROVIDER_NAMES[provider] ?? provider,
-                      })}
-                    </Button>
-                  ))}
-                  {withPassword && (
-                    <Button
-                      fullWidth
-                      variant="tertiary"
-                      onClick={() => signInWith()}
-                    >
-                      {t('Use a test account', {
-                        description:
-                          'Button signing in with a development account and password',
-                      })}
-                    </Button>
-                  )}
-                  <Text $size="xs" $variation="secondary" $textAlign="center">
-                    {t(
-                      'No password to remember: an account you already have signs you in. The first time, it creates your Collaborators account.',
-                      { description: 'Explanation under the sign-in buttons' },
-                    )}
-                  </Text>
-                </Box>
+                signIn
               )}
             </Box>
+          )}
+          {bundle && (
+            <InvitationBundleCard
+              bundle={bundle}
+              authenticated={authenticated}
+              userEmail={user?.email}
+              isPending={accept.isPending}
+              onAccept={onAcceptInBundle}
+              signIn={signIn}
+              signedInAs={signedInAs}
+            />
           )}
         </Box>
         <Footer />

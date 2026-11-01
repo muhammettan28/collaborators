@@ -15,6 +15,33 @@ export interface InvitationInfo {
   is_expired: boolean;
 }
 
+/** One of the invitations sent together, as their page lists it. */
+export interface BundledInvitation {
+  /** Its own token while it waits: for its logo, to accept it alone */
+  token?: string;
+  /** Accepted: what it opens */
+  id?: string;
+  is_accepted: boolean;
+  kind: InvitationInfo['kind'];
+  name: string;
+  description: string;
+  role: string;
+  has_logo: boolean;
+  is_expired: boolean;
+}
+
+/** Invitations someone sent the same person within a few minutes. */
+export interface InvitationBundleInfo {
+  is_bundle: true;
+  issuer: string;
+  email: string;
+  invitations: BundledInvitation[];
+}
+
+export const isInvitationBundle = (
+  info: InvitationInfo | InvitationBundleInfo,
+): info is InvitationBundleInfo => 'is_bundle' in info;
+
 export interface WorkspaceInvitation {
   id: string;
   email: string;
@@ -38,9 +65,10 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
 export const INVITE_PATH = '/invite/';
 
 export const useInvitationInfo = (token: string) =>
-  useQuery<InvitationInfo, APIError>({
+  useQuery<InvitationInfo | InvitationBundleInfo, APIError>({
     queryKey: ['invitation', token],
-    queryFn: () => request<InvitationInfo>(`invitations/${token}/`),
+    queryFn: () =>
+      request<InvitationInfo | InvitationBundleInfo>(`invitations/${token}/`),
     enabled: !!token,
     retry: false,
   });
@@ -48,6 +76,7 @@ export const useInvitationInfo = (token: string) =>
 export const invitationLogoUrl = (token: string) =>
   `${baseApiUrl()}invitations/${token}/logo/`;
 
+/** With the token of invitations sent together, accepts all of them. */
 export const useAcceptInvitation = () =>
   useMutation<{ kind: string; id: string }, APIError, string>({
     mutationFn: (token) =>

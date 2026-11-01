@@ -2573,6 +2573,14 @@ class Invitation(BaseModel):
         blank=True,
         null=True,
     )
+    # Collaborators: the email it was sent with (core.invitations)
+    bundle = models.ForeignKey(
+        "InvitationBundle",
+        on_delete=models.SET_NULL,
+        related_name="document_invitations",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         db_table = "impress_invitation"
@@ -3827,6 +3835,14 @@ class WorkspaceInvitation(BaseModel):
         null=True,
         blank=True,
     )
+    # The email it was sent with (core.invitations)
+    bundle = models.ForeignKey(
+        "InvitationBundle",
+        on_delete=models.SET_NULL,
+        related_name="workspace_invitations",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         db_table = "collaborators_workspace_invitation"
@@ -3866,6 +3882,41 @@ class WorkspaceInvitation(BaseModel):
             )
         valid.delete()
         user.mark_invited()
+
+
+class InvitationBundle(BaseModel):
+    """
+    The invitations by email someone sends one person within a few minutes,
+    sent as one email (core.invitations): each invitation joining it
+    puts its sending off until COLLABORATORS_INVITATION_BUNDLE_DELAY after
+    the last one. Its link lists them, and once they are accepted, what
+    they were to (`items`).
+    """
+
+    email = models.EmailField(_("email address"))
+    issuer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="invitation_bundles",
+        null=True,
+        blank=True,
+    )
+    language = models.CharField(max_length=10, blank=True)
+    # Raised by each invitation joining it: only the task queued by the last
+    # one sends the email
+    version = models.PositiveIntegerField(default=0)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    # [kind, id] of what its invitations were to, when it was sent
+    items = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        db_table = "collaborators_invitation_bundle"
+        verbose_name = _("Invitation email")
+        verbose_name_plural = _("Invitation emails")
+        indexes = [models.Index(fields=["email", "issuer", "sent_at"])]
+
+    def __str__(self):
+        return f"Invitations of {self.email}"
 
 
 class ItemLogo(BaseModel):

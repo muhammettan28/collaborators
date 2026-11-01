@@ -7,9 +7,14 @@ The invitation's email links to /invite/?token=…, a page showing what one is
 invited to (name and logo) with the ways to sign in or sign up; once signed
 in, the page accepts the invitation (whatever email they signed up with).
 
+The invitations someone sends one person within a few minutes go out as one
+email (models.InvitationBundle): a single one as it always did, several in a
+list whose link (a token naming the bundle) shows each of them, to accept
+all at once or one by one.
+
 GET  /api/v1.0/invitations/<token>/          — what it invites to (anyone)
 GET  /api/v1.0/invitations/<token>/logo/     — the item's logo (anyone)
-POST /api/v1.0/invitations/<token>/accept/   — join it (signed in)
+POST /api/v1.0/invitations/<token>/accept/   — join it, or all (signed in)
 
 GET, POST    /api/v1.0/workspaces/<id>/invitations/        — administrators
 DELETE       /api/v1.0/workspaces/<id>/invitations/<id>/
@@ -20,20 +25,14 @@ GET, PUT, DELETE /api/v1.0/documents/<id>/logo/
 
 import base64
 import binascii
-import smtplib
-from logging import getLogger
 
 from django.conf import settings
-from django.contrib.sites.models import Site
 from django.core import signing
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.mail import send_mail
 from django.core.validators import validate_email
 from django.db import transaction
 from django.http import HttpResponse
-from django.template.loader import render_to_string
 from django.utils import timezone
-from django.utils.translation import get_language, override
 from django.utils.translation import gettext_lazy as _
 
 import rest_framework as drf
@@ -41,49 +40,50 @@ from rest_framework.views import APIView
 
 from core import choices, models, platform_settings, registrations
 from core.api import permissions
+from core.invitations import (
+    DOCUMENT,
+    SALT,
+    WORKSPACE,
+    item_of,
+    kind_label,
+    make_token,
+    role_label,
+)
+from core.tasks.mail import send_invitation_bundle
 
-logger = getLogger(__name__)
 
-SALT = "collaborators-invitation"
-WORKSPACE = "w"
-DOCUMENT = "d"
-
-
-def make_token(kind, invitation):
+def find_bundle(token):
     """
-    A signed token naming the invitation, for the link of its email.
-    Collaborators: and what it is to, so the link still leads there once
-    the invitation was used (a newcomer's account takes their invitations
-    when it is made, before they come back to the link).
+    The invitations sent together that a token names; None for the token
+    of one invitation, 404 when tampered with.
     """
-    return signing.dumps(
-        {
-            "k": kind,
-            "i": str(invitation.id),
-            "t": str(item_of(kind, invitation).id),
-        },
-        salt=SALT,
-    )
-
-
-def invite_link(kind, invitation):
-    """The page to accept the invitation."""
-    domain = settings.EMAIL_URL_APP or Site.objects.get_current().domain
-    return f"{domain}/invite/?token={make_token(kind, invitation)}"
-
-
-def invite_logo_url(kind, invitation):
-    """
-    The logo of what the invitation is to, for its email; None without one.
-    Shown while the invitation lasts, as on the page accepting it.
-    """
-    item = item_of(kind, invitation)
-    if not models.ItemLogo.objects.filter(
-        **{"workspace" if kind == WORKSPACE else "document": item}
-    ).exists():
+    try:
+        data = signing.loads(token, salt=SALT)
+    except signing.BadSignature as error:
+        raise drf.exceptions.NotFound() from error
+    if "b" not in data:
         return None
-    domain = settings.EMAIL_URL_APP or Site.objects.get_current().domain
-    return f"{domain}/api/v1.0/invitations/{make_token(kind, invitation)}/logo/"
+    bundle = models.InvitationBundle.objects.filter(id=data["b"]).first()
+    if bundle is None:
+        raise drf.exceptions.NotFound()
+    return bundle
+
+
+def pending_invitation(email, kind, item_id):
+    """The invitation of an email to an item, if still there."""
+    if kind == WORKSPACE:
+        return (
+            models.WorkspaceInvitation.objects.filter(
+                email__iexact=email, workspace_id=item_id
+            )
+            .select_related("workspace", "issuer")
+            .first()
+        )
+    return (
+        models.Invitation.objects.filter(email__iexact=email, document_id=item_id)
+        .select_related("document", "issuer")
+        .first()
+    )
 
 
 def find_invitation(token):
@@ -113,11 +113,15 @@ def accepted_item(token, user):
         data = signing.loads(token, salt=SALT)
     except signing.BadSignature:
         return None
-    item_id = data.get("t")
-    if not item_id:
+    return openable_item(data.get("k"), data.get("t"), user)
+
+
+def openable_item(kind, item_id, user):
+    """The workspace or document, if the user is in it."""
+    if not item_id or not user.is_authenticated:
         return None
     try:
-        if data.get("k") == WORKSPACE:
+        if kind == WORKSPACE:
             return models.Workspace.objects.filter(
                 id=item_id, accesses__user=user
             ).first()
@@ -137,66 +141,86 @@ def accepted_answer(item, **fields):
     )
 
 
-def item_of(kind, invitation):
-    """The workspace or document an invitation is to."""
-    return invitation.workspace if kind == WORKSPACE else invitation.document
+# -- Invitations sent together
 
 
-def kind_label(kind, item):
-    """ "workspace", "space" or "page"."""
-    if kind == WORKSPACE:
-        return "workspace"
-    return "space" if item.kind == choices.DocumentKindChoices.SPACE else "page"
+def queue_invitation_mail(invitation, sender, language):
+    """
+    Send the invitation's email, with the others its sender sends the same
+    person within COLLABORATORS_INVITATION_BUNDLE_DELAY: one email for them
+    all, that long after the last one (at once in tests, where Celery runs
+    its tasks inline).
+    """
+    # Requests are not atomic: the bundle is committed before its task runs
+    with transaction.atomic():
+        bundle = models.InvitationBundle.objects.select_for_update().filter(
+            email__iexact=invitation.email, issuer=sender, sent_at__isnull=True
+        ).first() or models.InvitationBundle(email=invitation.email, issuer=sender)
+        bundle.language = language or ""
+        bundle.version += 1
+        bundle.save()
+        invitation.bundle = bundle
+        invitation.save(update_fields=["bundle", "updated_at"])
+    send_invitation_bundle.apply_async(
+        args=[str(bundle.id), bundle.version],
+        countdown=settings.COLLABORATORS_INVITATION_BUNDLE_DELAY,
+    )
 
 
-def send_invitation_mail(email, invitation, kind, sender, language=None):
-    """The email inviting someone, with the link to accept it."""
-    item = item_of(kind, invitation)
-    name = item.name if kind == WORKSPACE else (item.title or _("Untitled page"))
-    sender_name = sender.full_name or sender.email
-    language = language or get_language()
-    with override(language):
-        what = {
-            "workspace": _("the workspace"),
-            "space": _("the space"),
-            "page": _("the page"),
-        }[kind_label(kind, item)]
-        context = {
-            "brandname": settings.EMAIL_BRAND_NAME,
-            "logo_img": settings.EMAIL_LOGO_IMG,
-            "item_logo_img": invite_logo_url(kind, invitation),
-            "title": _("{name} invited you to {what} {item}").format(
-                name=sender_name, what=what, item=name
-            ),
-            "message": _(
-                "{name} ({email}) invited you to join {what} “{item}” on "
-                "{brand}. Sign up or sign in with Google, Microsoft or "
-                "LinkedIn to accept the invitation."
-            ).format(
-                name=sender_name,
-                email=sender.email,
-                what=what,
-                item=name,
-                brand=settings.EMAIL_BRAND_NAME,
-            ),
-            "link": invite_link(kind, invitation),
-            "link_label": name,
-            "button_label": _("Accept the invitation"),
+def bundle_entry(bundle, kind, item_id, user):
+    """
+    One invitation of a bundle as its page shows it: still to accept (with
+    its own token, for its logo and to accept it alone), or accepted and
+    open to the one signed in. None once cancelled.
+    """
+    invitation = pending_invitation(bundle.email, kind, item_id)
+    if invitation is not None:
+        item = item_of(kind, invitation)
+        return {
+            "token": make_token(kind, invitation),
+            "is_accepted": False,
+            "kind": kind_label(kind, item),
+            "name": item.name if kind == WORKSPACE else item.title or "",
+            "description": item.description if kind == WORKSPACE else "",
+            "role": role_label(kind, invitation),
+            "has_logo": models.ItemLogo.objects.filter(
+                **{"workspace" if kind == WORKSPACE else "document": item}
+            ).exists(),
+            "is_expired": invitation.is_expired,
         }
-        subject = str(context["title"])
-        html = render_to_string("mail/html/template.html", context)
-        plain = render_to_string("mail/text/template.txt", context)
-    try:
-        send_mail(
-            subject,
-            plain,
-            settings.EMAIL_FROM,
-            [email],
-            html_message=html,
-            fail_silently=False,
-        )
-    except smtplib.SMTPException as exception:
-        logger.error("invitation to %s was not sent: %s", email, exception)
+    item = openable_item(kind, item_id, user)
+    if item is None:
+        return None
+    return {
+        "id": str(item.id),
+        "is_accepted": True,
+        "kind": kind_label(kind, item),
+        "name": item.name if kind == WORKSPACE else item.title or "",
+        "description": item.description if kind == WORKSPACE else "",
+        "role": "",
+        "has_logo": False,
+        "is_expired": False,
+    }
+
+
+def bundle_answer(bundle, user):
+    """What the link of invitations sent together shows; 404 once empty."""
+    entries = [
+        entry
+        for kind, item_id in bundle.items
+        if (entry := bundle_entry(bundle, kind, item_id, user)) is not None
+    ]
+    if not entries:
+        raise drf.exceptions.NotFound()
+    issuer = bundle.issuer
+    return drf.response.Response(
+        {
+            "is_bundle": True,
+            "issuer": (issuer.full_name or issuer.email) if issuer else "",
+            "email": bundle.email,
+            "invitations": entries,
+        }
+    )
 
 
 class InvitationView(APIView):
@@ -206,6 +230,9 @@ class InvitationView(APIView):
 
     def get(self, request, token):
         """Name, kind, who invites, and whether it is still valid."""
+        bundle = find_bundle(token)
+        if bundle is not None:
+            return bundle_answer(bundle, request.user)
         try:
             kind, invitation = find_invitation(token)
         except drf.exceptions.NotFound:
@@ -268,6 +295,16 @@ class AcceptInvitationView(APIView):
 
     def post(self, request, token):
         """Become a member (workspace) or get the role (space, page)."""
+        bundle = find_bundle(token)
+        if bundle is not None:
+            # Invitations sent together: all those still valid
+            accepted = 0
+            for kind, item_id in bundle.items:
+                invitation = pending_invitation(bundle.email, kind, item_id)
+                if invitation is not None and not invitation.is_expired:
+                    accept(kind, invitation, request.user)
+                    accepted += 1
+            return drf.response.Response({"kind": "bundle", "accepted": accepted})
         try:
             kind, invitation = find_invitation(token)
         except drf.exceptions.NotFound:
@@ -281,25 +318,30 @@ class AcceptInvitationView(APIView):
             raise drf.exceptions.ValidationError(
                 {"token": _("This invitation has expired: ask for a new one.")}
             )
-        user = request.user
-        item = item_of(kind, invitation)
-        with transaction.atomic():
-            if kind == WORKSPACE:
-                models.WorkspaceAccess.objects.get_or_create(
-                    workspace=item, user=user, defaults={"role": invitation.role}
-                )
-            elif item.get_role(user) is None:
-                models.DocumentAccess.objects.create(
-                    document=item, user=user, role=invitation.role
-                )
-            invitation.delete()
-            user.mark_invited()
-            if user.registration_status != registrations.APPROVED:
-                user.registration_status = registrations.APPROVED
-                user.save(update_fields=["registration_status", "updated_at"])
+        item = accept(kind, invitation, request.user)
         return drf.response.Response(
             {"kind": kind_label(kind, item), "id": str(item.id)}
         )
+
+
+def accept(kind, invitation, user):
+    """The invitation becomes the user's access; what it was to."""
+    item = item_of(kind, invitation)
+    with transaction.atomic():
+        if kind == WORKSPACE:
+            models.WorkspaceAccess.objects.get_or_create(
+                workspace=item, user=user, defaults={"role": invitation.role}
+            )
+        elif item.get_role(user) is None:
+            models.DocumentAccess.objects.create(
+                document=item, user=user, role=invitation.role
+            )
+        invitation.delete()
+        user.mark_invited()
+        if user.registration_status != registrations.APPROVED:
+            user.registration_status = registrations.APPROVED
+            user.save(update_fields=["registration_status", "updated_at"])
+    return item
 
 
 def validated_email(raw):
@@ -382,10 +424,8 @@ class WorkspaceInvitationsView(APIView):
             invitation.issuer = request.user
             invitation.created_at = timezone.now()
             invitation.save(update_fields=["role", "issuer", "created_at"])
-        send_invitation_mail(
-            email,
+        queue_invitation_mail(
             invitation,
-            WORKSPACE,
             request.user,
             request.user.language or settings.LANGUAGE_CODE,
         )

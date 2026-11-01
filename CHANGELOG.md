@@ -17,6 +17,8 @@ and this project adheres to
 - ✨(frontend) presentations: Motion and Slides tabs, a time bar for animations
 - ✨(backend) a guide for AIs making presentations, and checks of each file
 - ✨(backend) invitation emails show the logo of what they invite to
+- ✨(backend) invitations sent within minutes to one person go out as one email
+- ✨(frontend) the link of invitations sent together lists them to accept
 - ✨(docspec) handle DocSpec 4xx/5xx import errors distinctly #2552
 - 🌐(frontend) add Crowdin translator context #2785
 
