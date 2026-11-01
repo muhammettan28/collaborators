@@ -212,9 +212,12 @@ export const CreateSpaceModal = ({
             })}
           </Text>
           <Text $size="xs" $variation="secondary" $margin="none">
-            {t('You own the space. Add people or groups who can edit it too.', {
-              description: 'Help text of the space editors choice',
-            })}
+            {t(
+              'You own the space. Add people or user groups who can edit it too.',
+              {
+                description: 'Help text of the space editors choice',
+              },
+            )}
           </Text>
           <UserPicker
             label={t('Add a person by name or email', {
@@ -299,7 +302,9 @@ export const CreateSpaceModal = ({
           {groups.length > 0 && (
             <Box $gap="3xs" $margin={{ top: 'xs' }}>
               <Text $size="xs" $weight="600" $margin="none">
-                {t('Groups', { description: 'Heading of a list of groups' })}
+                {t('User groups', {
+                  description: 'Heading of a list of groups',
+                })}
               </Text>
               {groups.map((group) => (
                 <Checkbox

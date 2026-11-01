@@ -16,12 +16,12 @@ Legend for "Docs today": ✅ already there · 🟡 partly there · ❌ to build.
 |---|---|
 | **Collaborators** | The platform itself, the roof over everything. Run by its **owners, administrators and managers** (see Roles). Its logo is the text wordmark **CO✍️✍️ABORATORS**, in bold italic capitals (no logo image), so it works the same in the app and in emails; page titles and screen readers use the plain name "Collaborators". |
 | **Collaborator** | A person with an account (we don't say "user" in the UI). There is no guest status (decided 2026-10-23): people from outside are invited to a workspace, space or page like anyone else. |
-| **Workspace** | An organisation-level area (a company, university, community). Has its own members, admins and groups. Address: `<slug>.collaborators.community`. |
+| **Workspace** | An organisation-level area (a company, university, community). Has its own members, admins and user groups. Address: `<slug>.collaborators.community`. |
 | **Space** | A team or topic area inside a workspace, holding a tree of pages. |
 | **Shared space** | A space owned by one workspace (its **home**) and linked into others. |
 | **Independent space / page** | A space or page owned by a collaborator instead of a workspace. |
 | **Page** | A document: blocks, sub-pages, Loop tables. |
-| **Group** | A set of collaborators managed by workspace admins: a **Team** (task based) or an **Organization** (company, institution). |
+| **User group** | A set of collaborators managed by workspace admins: a **Team** (task based) or an **Organization** (company, institution). Called "user groups" everywhere in the interface (2026-11-01); still `Group` in the code, the API (`/groups/`) and the page content (`kind: "group"`). |
 
 ```
 Collaborators  (collaborators.community)
@@ -54,7 +54,7 @@ Collaborators  (collaborators.community)
 | Workspace | Owner · Admin · Member |
 | Space / page | Owner · Administrator · Editor · Commenter · Reader *(Docs' existing `RoleChoices`)* |
 
-Space and page access can be granted to a collaborator or to a **group**.
+Space and page access can be granted to a collaborator or to a **user group**.
 
 **Platform levels** (names decided 2026-10-25; one word each in the interface, without "platform", 2026-10-25), each with the rights of the levels below it:
 - **Collaborator:** anyone with an account.
@@ -158,11 +158,11 @@ See **section 3**: it is the largest single piece of work.
 ### F4 — @mentions and notifications
 
 **Requirements**
-- `@` suggests **collaborators and groups** in page text, comments and **Loop table cells**.
-- Typing `@` alone lists, with nothing typed: the people one works with, all groups and all pages one can read. Typing narrows the list.
+- `@` suggests **collaborators and user groups** in page text, comments and **Loop table cells**.
+- Typing `@` alone lists, with nothing typed: the people one works with, all user groups and all pages one can read. Typing narrows the list.
   - **People** = members of one's workspaces + people one shares pages with. Never every account on the platform (user's decision).
   - Anyone else is found by the platform-wide search after 3 letters.
-  - **Groups** = every group of every workspace one belongs to.
+  - **User groups** = every user group of every workspace one belongs to.
 - Assigning a collaborator or group in a table's **Person** column also notifies them.
 - **Notification inbox** (bell icon) with unread count, mark read / all read, and filters; each item links to the exact block, comment or **table cell** and highlights it.
 - **Email** per collaborator preference: right away, or off. (Daily digests were dropped.)
@@ -182,7 +182,7 @@ See **section 3**: it is the largest single piece of work.
 - Fan-out of group mentions to members; "Notify N people?" confirmation.
 - Later hardening: detect added and removed mentions on the server when the collaboration server reports new content (`content-updated`), rather than trusting the client alone.
 
-### F5 — Groups
+### F5 — User groups
 
 **Requirements**
 - Workspace admins create, rename and delete groups; add and remove members; optionally appoint **group managers** who can manage membership.

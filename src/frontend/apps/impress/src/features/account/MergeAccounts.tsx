@@ -45,7 +45,7 @@ export const MergeProposal = () => {
       </Text>
       <Text $size="sm">
         {t(
-          'Pages it owns: {{pages}} · shared with it: {{shared}} · workspaces: {{workspaces}} · groups: {{groups}}.',
+          'Pages it owns: {{pages}} · shared with it: {{shared}} · workspaces: {{workspaces}} · user groups: {{groups}}.',
           {
             description: 'What the account merged brings',
             pages: proposal.pages,

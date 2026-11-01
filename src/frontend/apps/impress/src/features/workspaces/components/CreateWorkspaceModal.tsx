@@ -136,7 +136,7 @@ export const CreateWorkspaceModal = ({
       <Box $gap="sm" $padding={{ top: 'xs' }}>
         <Text $variation="secondary" as="p" $margin="none">
           {t(
-            'A workspace gathers the spaces, members and groups of an organisation, a company or a community. You will be its owner.',
+            'A workspace gathers the spaces, members and user groups of an organisation, a company or a community. You will be its owner.',
             { description: 'Explanation in the dialog creating a workspace' },
           )}
         </Text>

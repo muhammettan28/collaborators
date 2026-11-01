@@ -301,7 +301,7 @@ export const SearchPage = ({
               $padding={{ left: '3px' }}
               placeholder={
                 trigger === '@'
-                  ? t('mention someone, a group or a page...', {
+                  ? t('mention someone, a user group or a page...', {
                       description:
                         'Placeholder of the @ search for people, groups and pages',
                     })

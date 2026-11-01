@@ -323,7 +323,7 @@ const MembersSection = ({ workspace }: { workspace: Workspace }) => {
     <Section
       title={t('Members', { description: 'Heading of workspace members' })}
       description={t(
-        'Members can see the spaces opened to the workspace and create spaces. Administrators manage members, groups and every space of the workspace.',
+        'Members can see the spaces opened to the workspace and create spaces. Administrators manage members, user groups and every space of the workspace.',
         { description: 'Explanation of workspace roles' },
       )}
     >
@@ -516,7 +516,7 @@ const GroupMembers = ({
           </Button>
           {!selected.length && (
             <Text $size="xs" $variation="secondary">
-              {t('Tick people to move or copy them to another group.', {
+              {t('Tick people to move or copy them to another user group.', {
                 description: 'Hint for moving members between groups',
               })}
             </Text>
@@ -617,9 +617,9 @@ const GroupsSection = ({ workspace }: { workspace: Workspace }) => {
 
   return (
     <Section
-      title={t('Groups', { description: 'Heading of a list of groups' })}
+      title={t('User groups', { description: 'Heading of a list of groups' })}
       description={t(
-        'Teams gather people working on a task; organizations gather the people of a company or institution. Groups can be given access to spaces and pages, and mentioned. Any member can create a team and manage it; administrators manage every group.',
+        'Teams gather people working on a task; organizations gather the people of a company or institution. User groups can be given access to spaces and pages, and mentioned. Any member can create a team and manage it; administrators manage every user group.',
         { description: 'Explanation of workspace groups' },
       )}
     >
@@ -628,7 +628,7 @@ const GroupsSection = ({ workspace }: { workspace: Workspace }) => {
           <Box $flex={1}>
             <Input
               fullWidth
-              label={t('New group name', {
+              label={t('New user group name', {
                 description: 'Label of the group name field',
               })}
               value={name}
@@ -663,7 +663,7 @@ const GroupsSection = ({ workspace }: { workspace: Workspace }) => {
       <Box>
         {groups.length === 0 && (
           <Text $size="sm" $variation="secondary">
-            {t('No group yet.', {
+            {t('No user group yet.', {
               description: 'Shown when there is no group',
             })}
           </Text>
@@ -740,7 +740,7 @@ const GroupsSection = ({ workspace }: { workspace: Workspace }) => {
             name: groupToDelete.name,
           })}
           message={t(
-            'Delete the group "{{name}}"? The access it gives to spaces and pages goes with it.',
+            'Delete the user group "{{name}}"? The access it gives to spaces and pages goes with it.',
             {
               description: 'Confirmation before deleting a group',
               name: groupToDelete.name,
@@ -930,7 +930,7 @@ const SpacesSection = ({ workspace }: { workspace: Workspace }) => {
     <Section
       title={t('Spaces', { description: 'Heading of the list of spaces' })}
       description={t(
-        'Spaces owned by this workspace can be shared with other workspaces; their administrators then decide which of their groups get access.',
+        'Spaces owned by this workspace can be shared with other workspaces; their administrators then decide which of their user groups get access.',
         { description: 'Explanation of shared spaces' },
       )}
     >

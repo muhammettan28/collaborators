@@ -29,6 +29,7 @@ and this project adheres to
 - 💄(frontend) a presentation's time bar and slide buttons go below it
 - 💄(frontend) an animation with its time bar waits for Play
 - 💄(frontend) presentation comes first in the / menu
+- 💬(collaborators) groups of people are called "user groups" everywhere
 
 ### Fixed
 

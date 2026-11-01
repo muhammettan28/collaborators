@@ -691,7 +691,9 @@ const SlashMenu = ({
     {
       panel: 'mention',
       icon: 'person',
-      label: t('Person, group or page', { description: 'Text cell "/" menu' }),
+      label: t('Person, user group or page', {
+        description: 'Text cell "/" menu',
+      }),
     },
     {
       panel: 'date',

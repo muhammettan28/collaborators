@@ -89,7 +89,7 @@ const CardContent = ({
       )}
       {card?.known && card.groups.length > 0 && (
         <Text $size="xs" $variation="secondary">
-          {t('Groups: {{names}}', {
+          {t('User groups: {{names}}', {
             description: 'The groups a person is in',
             names: card.groups.map((group) => group.name).join(', '),
           })}

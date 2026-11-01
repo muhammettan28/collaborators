@@ -82,7 +82,7 @@ export const PersonPicker = ({
   return (
     <Popover
       onClose={onClose}
-      label={t('Choose people or groups', {
+      label={t('Choose people or user groups', {
         description: 'Accessible name of the person picker of a table cell',
       })}
     >
@@ -127,10 +127,10 @@ export const PersonPicker = ({
         style={{ width: '100%' }}
         placeholder={
           onPickPage
-            ? t('Search a name, group or page', {
+            ? t('Search a name, user group or page', {
                 description: 'Placeholder of the mention picker of a text cell',
               })
-            : t('Search a name, email or group', {
+            : t('Search a name, email or user group', {
                 description: 'Placeholder of the person picker of a table cell',
               })
         }
@@ -161,7 +161,7 @@ export const PersonPicker = ({
           </button>
         ))}
         {shownTeams.length > 0 &&
-          heading(t('Groups', { description: 'Mention picker section' }))}
+          heading(t('User groups', { description: 'Mention picker section' }))}
         {shownTeams.map((team) => (
           <button
             key={team.team}

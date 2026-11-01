@@ -133,10 +133,10 @@ export const WhoCanSee = ({ doc }: { doc: Doc }) => {
       default:
         return isSpace
           ? t(
-              'Only the people and groups given a role, and the administrators of its workspace.',
+              'Only the people and user groups given a role, and the administrators of its workspace.',
               { description: 'Help of the invited visibility of a space' },
             )
-          : t('Only the people and groups given a role, above.', {
+          : t('Only the people and user groups given a role, above.', {
               description: 'Help of the invited visibility',
             });
     }

@@ -88,7 +88,7 @@ describe('GroupHoverCard', () => {
 
     expect(
       await screen.findByText(
-        'Only people of this group’s workspace see who is in it.',
+        'Only people of this user group’s workspace see who is in it.',
       ),
     ).toBeInTheDocument();
     expect(

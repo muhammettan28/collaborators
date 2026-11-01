@@ -40,7 +40,7 @@ describe('PersonHoverCard', () => {
     expect(await screen.findByText('ada@acme.org')).toBeInTheDocument();
     expect(card).toHaveTextContent('Ada Lovelace');
     expect(screen.getByText('Workspaces: Acme')).toBeInTheDocument();
-    expect(screen.getByText('Groups: Q4')).toBeInTheDocument();
+    expect(screen.getByText('User groups: Q4')).toBeInTheDocument();
   });
 
   test('a stranger shows only their name', async () => {

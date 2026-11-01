@@ -459,13 +459,15 @@ export const JoiningSection = ({
       <Box $gap="xs">
         <Select
           fullWidth
-          label={t('Also add them to the group', {
+          label={t('Also add them to the user group', {
             description: 'Label of the organisation group of joiners',
           })}
           clearable={false}
           options={[
             {
-              label: t('No group', { description: 'No organisation group' }),
+              label: t('No user group', {
+                description: 'No organisation group',
+              }),
               value: '',
             },
             ...groups.map((group) => ({ label: group.name, value: group.id })),

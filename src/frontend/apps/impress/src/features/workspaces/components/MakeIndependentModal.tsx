@@ -47,7 +47,7 @@ export const MakeIndependentModal = ({
       message={
         isSpace
           ? t(
-              'This space leaves its workspaces: their members, admins and groups lose the access they had through them. You become its owner, and can share it again or move it into a workspace later.',
+              'This space leaves its workspaces: their members, admins and user groups lose the access they had through them. You become its owner, and can share it again or move it into a workspace later.',
               { description: 'Confirmation of making a space independent' },
             )
           : t(

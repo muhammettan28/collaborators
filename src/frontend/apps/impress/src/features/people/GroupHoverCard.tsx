@@ -181,7 +181,7 @@ const CardContent = ({
           )}
           {card.member_count === 0 && (
             <Text $size="xs" $variation="secondary">
-              {t('Nobody is in this group yet.', {
+              {t('Nobody is in this user group yet.', {
                 description: 'Card of a group without members',
               })}
             </Text>
@@ -190,14 +190,14 @@ const CardContent = ({
       )}
       {card && !card.known && (
         <Text $size="xs" $variation="secondary">
-          {t('Only people of this group’s workspace see who is in it.', {
+          {t('Only people of this user group’s workspace see who is in it.', {
             description: 'Card of a group from a workspace one is not in',
           })}
         </Text>
       )}
       {isError && (
         <Text $size="xs" $variation="secondary">
-          {t('This group can’t be shown.', {
+          {t('This user group can’t be shown.', {
             description: 'Group card that could not load',
           })}
         </Text>
