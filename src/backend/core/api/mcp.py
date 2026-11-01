@@ -12,9 +12,10 @@ approved it. The token names the person (by email, as signing in does);
 without one, the answer says where to get it. What the assistant may do is
 in core.assistants: find the pages the person can edit, and add their input
 to one; and in core.presentations: publish an HTML presentation in a page
-(with its PDF twin), replace it later at the same address, and read how to
-make presentations for Collaborators (its guide); every file sent is
-checked against the guide, and the answer says what it misses.
+(with its PDF twin), or launch a new page with it at its top (of one's own,
+or in a space), shared as asked; replace it later at the same address, and
+read how to make presentations for Collaborators (its guide); every file
+sent is checked against the guide, and the answer says what it misses.
 """
 
 import base64
@@ -25,6 +26,9 @@ import uuid
 from functools import lru_cache
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -37,18 +41,32 @@ from core import (
     assistants,
     merging,
     models,
+    platform_settings,
     presentation_guide,
     presentations,
     registrations,
 )
+from core.api import invitations, publishing
 from core.services import keycloak
 from core.services.converter_services import ServiceUnavailableError
 from core.services.yhub_services import YHubError
+from core.utils.users import can_find
 
 logger = logging.getLogger(__name__)
 
 # Newest first; an older one asked for is answered in kind
 PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26")
+
+# Who may open a page launched with a presentation, with its link: its link
+# reach (restricted: only those it is shared with, as a new page starts)
+SHARES = {
+    "restricted": None,
+    "authenticated": models.LinkReachChoices.AUTHENTICATED,
+    "public": models.LinkReachChoices.PUBLIC,
+}
+# The people one's assistant may add to a page it launches, and as what
+MAX_MEMBERS = 50
+MEMBER_ROLES = ("reader", "commenter", "editor", "administrator")
 
 TOOLS = [
     {
@@ -57,7 +75,9 @@ TOOLS = [
         "description": (
             "Find the Collaborators pages the user can add input to (pages "
             "they can edit), most recently changed first. Optionally filter "
-            "by words of the title."
+            "by words of the title; with the workspaces they belong to "
+            '(`kind` "workspace") and spaces ("space"), where '
+            "create_presentation_page can launch a page."
         ),
         "inputSchema": {
             "type": "object",
@@ -154,6 +174,88 @@ TOOLS = [
                 },
             },
             "required": ["page_id"],
+        },
+        "annotations": {"destructiveHint": False, "idempotentHint": False},
+    },
+    {
+        "name": "create_presentation_page",
+        "title": "Launch a page with a presentation",
+        "description": (
+            "Create a new Collaborators page with an HTML presentation at its "
+            "top (an animation or slides made in a chat, with its PDF twin), "
+            "ready to share. The page is the user's own, or goes straight in "
+            "a workspace they belong to, in a space, or under a page they can "
+            "edit (`place_id`, as find_pages gives it). `share` says who may "
+            'open it with its link: "restricted" (default: those it is '
+            "shared with, the members of its workspace or the people of its "
+            'space), "authenticated" (anyone signed in to '
+            'Collaborators) or "public" (anyone, as the workspace\'s '
+            "publishing rules allow). `members` adds people by email, each "
+            "told by email (ask the user for their addresses): those the user "
+            "can find get their role at once, the others are invited by "
+            "email. Give the file and its PDF as for "
+            "publish_presentation, after reading presentation_guide. The "
+            "answer gives the page's address to share, the presentation's "
+            "addresses, and what the file misses of the guide."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": ("The page's title (else the HTML's own <title>)"),
+                },
+                "place_id": {
+                    "type": "string",
+                    "description": (
+                        "A workspace, space or page to create it in, as "
+                        "find_pages gives it (optional: else a page of the "
+                        "user's own)"
+                    ),
+                },
+                "share": {
+                    "type": "string",
+                    "enum": list(SHARES),
+                    "description": "Who may open it with its link",
+                },
+                "members": {
+                    "type": "array",
+                    "description": "People to add to it (optional)",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "email": {"type": "string"},
+                            "role": {
+                                "type": "string",
+                                "enum": list(MEMBER_ROLES),
+                                "description": "Default: reader",
+                            },
+                        },
+                        "required": ["email"],
+                    },
+                },
+                "html": {"type": "string", "description": "The HTML file"},
+                "link": {
+                    "type": "string",
+                    "description": "Or: the https address of an HTML file",
+                },
+                "upload_later": {
+                    "type": "boolean",
+                    "description": (
+                        "Or: get an address to upload the file (and its PDF) to"
+                    ),
+                },
+                "pdf_base64": {
+                    "type": "string",
+                    "description": (
+                        "Its PDF twin (one slide per page), base64-encoded"
+                    ),
+                },
+                "pdf_link": {
+                    "type": "string",
+                    "description": "Or: the https address of its PDF",
+                },
+            },
         },
         "annotations": {"destructiveHint": False, "idempotentHint": False},
     },
@@ -355,7 +457,10 @@ def _call_tool(user, claims, name, arguments):
 def _call_input_tool(user, claims, name, arguments):
     """Finding pages and adding one's input to one (core.assistants)."""
     if name == "find_pages":
-        pages = assistants.editable_pages(user, arguments.get("query") or "")
+        query = arguments.get("query") or ""
+        pages = assistants.workspaces_of(user, query) + assistants.editable_pages(
+            user, query
+        )
         if not pages:
             return _text(_("No page you can edit matches."), structured={"pages": []})
         return _text(json.dumps(pages, ensure_ascii=False), structured={"pages": pages})
@@ -485,6 +590,212 @@ def _publish_presentation(user, arguments):
     return _presentation_summary(presentation, user, upload_url)
 
 
+def _place_of(user, place_id):
+    """
+    Where a new page goes: (a space or page, a workspace), (None, None) for a
+    page of one's own; or why not.
+    """
+    if not place_id:
+        return None, None
+    found = _uuid_or_none(place_id)
+    workspace = models.Workspace.objects.filter(pk=found).first()
+    if workspace is not None and workspace.get_role(user) is not None:
+        return None, workspace
+    parent = models.Document.objects.filter(
+        pk=found, ancestors_deleted_at__isnull=True
+    ).first()
+    if parent is None or not parent.get_abilities(user).get("retrieve"):
+        raise assistants.InputError(_("This place doesn't exist, or you can't see it."))
+    if not parent.get_abilities(user).get("children_create"):
+        raise assistants.InputError(_("You can't create pages there."))
+    return parent, None
+
+
+def _reach_of(user, share, document, abilities):
+    """
+    The link reach the new page gets, None to leave it restricted; or why it
+    can't: one manages the link of a page of one's own or in a workspace, of
+    a page in a space one administers; publishing follows the workspace's
+    rules.
+    """
+    reach = SHARES[share]
+    if reach is None:
+        return None
+    if not abilities["link_configuration"]:
+        raise assistants.InputError(
+            _(
+                "You can't change who opens pages there: leave share out, "
+                "or make it a page of your own."
+            )
+        )
+    if reach == models.LinkReachChoices.PUBLIC and not publishing.can_publish(
+        user, document, abilities
+    ):
+        raise assistants.InputError(
+            _("Your workspace only lets its administrators publish.")
+        )
+    return reach
+
+
+def _who_opens(reach, parent, workspace):
+    if reach == models.LinkReachChoices.PUBLIC:
+        return _("anyone with its link (public)")
+    if reach == models.LinkReachChoices.AUTHENTICATED:
+        return _("anyone signed in to Collaborators, with its link")
+    if workspace is not None:
+        return _("the members of “{place}”").format(place=workspace.name)
+    if parent is not None:
+        return _("the people of “{place}”").format(
+            place=parent.title or _("Untitled page")
+        )
+    return _("only you, until you share it")
+
+
+def _members_of(arguments):
+    """The people to add to a new page, checked: [(email, role)]."""
+    members = arguments.get("members") or []
+    if not isinstance(members, list) or len(members) > MAX_MEMBERS:
+        raise assistants.InputError(
+            _("members is a list of up to {count} people.").format(count=MAX_MEMBERS)
+        )
+    found = []
+    for given in members:
+        member = given if isinstance(given, dict) else {"email": given}
+        email = str(member.get("email") or "").strip().lower()
+        role = member.get("role") or models.RoleChoices.READER
+        try:
+            validate_email(email)
+        except ValidationError as err:
+            raise assistants.InputError(
+                _("“{email}” isn't an email address.").format(email=email)
+            ) from err
+        if role not in MEMBER_ROLES:
+            raise assistants.InputError(
+                _("A member's role is one of: {roles}.").format(
+                    roles=", ".join(MEMBER_ROLES)
+                )
+            )
+        found.append((email, role))
+    return found
+
+
+def _add_members(user, document, members):
+    """
+    The people added to the new page, each told by email, as the share
+    dialog does: those one may find get their role at once; the others (and
+    those without an account) are invited by email, when the platform allows
+    it. What became of each.
+    """
+    language = user.language or settings.LANGUAGE_CODE
+    outcome = []
+    for email, role in members:
+        if email == user.email.lower():
+            continue
+        member = models.User.objects.filter(email__iexact=email).first()
+        if member is not None and (
+            not settings.COLLABORATORS_PEOPLE_PRIVACY or can_find(user.id, member.id)
+        ):
+            models.DocumentAccess.objects.update_or_create(
+                document=document, user=member, defaults={"role": role}
+            )
+            document.send_invitation_email(
+                member.email, role, user, member.language or language
+            )
+            outcome.append({"email": email, "role": role, "status": "added"})
+        elif platform_settings.get("email_invitations"):
+            invitation, _created = models.Invitation.objects.update_or_create(
+                document=document,
+                email=email,
+                defaults={"role": role, "issuer": user},
+            )
+            invitations.queue_invitation_mail(invitation, user, language)
+            outcome.append({"email": email, "role": role, "status": "invited"})
+        else:
+            outcome.append({"email": email, "role": role, "status": "not_added"})
+    return outcome
+
+
+def _member_line(member):
+    if member["status"] == "added":
+        line = _("{email} added as {role}, and told by email")
+    elif member["status"] == "invited":
+        line = _("{email} invited by email as {role}, to accept")
+    else:
+        line = _(
+            "{email} not added: invitations by email are turned off, so they "
+            "sign in first, then the page is shared with them"
+        )
+    return "- " + line.format(email=member["email"], role=member["role"])
+
+
+def _create_presentation_page(user, arguments):
+    parent, workspace = _place_of(user, arguments.get("place_id"))
+    share = arguments.get("share") or "restricted"
+    if share not in SHARES:
+        raise assistants.InputError(
+            _("share is one of: {shares}.").format(shares=", ".join(SHARES))
+        )
+    members = _members_of(arguments)
+    html, link, later = _content_of(arguments)
+    if not (html or link or later):
+        raise assistants.InputError(_("Give html, link or upload_later."))
+    pdf = _pdf_of(arguments)
+    title = (arguments.get("title") or "").strip()
+    with transaction.atomic():
+        document = presentations.new_page(user, title, parent, workspace)
+        abilities = document.get_abilities(user)
+        reach = _reach_of(user, share, document, abilities)
+        if members and not abilities["accesses_manage"]:
+            raise assistants.InputError(
+                _(
+                    "You can't add people to pages there: leave members out, "
+                    "or make it a page of your own or of a workspace."
+                )
+            )
+        presentation = presentations.create(
+            user, document, title=title, html=html, link=link, pdf=pdf
+        )
+        try:
+            document.title = (title or presentation.title or _("Presentation"))[:255]
+            if reach is not None:
+                document.link_reach = reach
+                document.link_role = models.LinkRoleChoices.READER
+            document.save()
+            if reach == models.LinkReachChoices.PUBLIC:
+                publishing.log_publication(
+                    document, user, models.PublicationActionChoices.PAGE_PUBLISHED
+                )
+            presentations.start_page(user, presentation)
+        except Exception:
+            # its files go; the page goes with the transaction
+            presentations.remove(presentation)
+            raise
+    added = _add_members(user, document, members)
+    upload_url = presentations.upload_address(user, presentation) if later else None
+    summary = _presentation_summary(presentation, user, upload_url)
+    page = {
+        "id": str(document.pk),
+        "title": document.title,
+        "url": presentations.page_url(document),
+        "share": share,
+        "members": added,
+    }
+    summary["structuredContent"]["page"] = page
+    summary["content"][0]["text"] = "\n".join(
+        [
+            _("Created the page “{title}”, the presentation at its top: {url}").format(
+                title=page["title"], url=page["url"]
+            ),
+            _("Who opens it with its link: {who}.").format(
+                who=_who_opens(reach, parent, workspace)
+            ),
+            *(_member_line(member) for member in added),
+            summary["content"][0]["text"],
+        ]
+    )
+    return summary
+
+
 def _replace_presentation(user, arguments):
     presentation = (
         models.Presentation.objects.select_related("document")
@@ -553,6 +864,7 @@ def _presentation_guide(_user, _arguments):
 
 PRESENTATION_TOOLS = {
     "publish_presentation": _publish_presentation,
+    "create_presentation_page": _create_presentation_page,
     "replace_presentation": _replace_presentation,
     "list_presentations": _list_presentations,
     "presentation_guide": _presentation_guide,
@@ -576,7 +888,8 @@ def _initialize(_user, _claims, params):
             "You can find the pages the user can edit, and add the user's "
             "input to one of them; it appears at the end of the page, in a "
             "toggle heading with their name. You can also publish an HTML "
-            "presentation in a page and replace it later at the same "
+            "presentation in a page, or launch a new page with it at its "
+            "top, ready to share, and replace it later at the same "
             "address: read presentation_guide first, and send its PDF with "
             "it. Ask which page when unsure."
         ),
