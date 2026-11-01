@@ -9,7 +9,7 @@ already work.
 """
 
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
@@ -238,9 +238,14 @@ class SpaceSerializer(ListDocumentSerializer):
     """Serialize spaces, with the workspaces they are placed in."""
 
     linked_workspaces = serializers.SerializerMethodField(read_only=True)
+    members_role = serializers.SerializerMethodField(read_only=True)
 
     class Meta(ListDocumentSerializer.Meta):
-        fields = [*ListDocumentSerializer.Meta.fields, "linked_workspaces"]
+        fields = [
+            *ListDocumentSerializer.Meta.fields,
+            "linked_workspaces",
+            "members_role",
+        ]
         read_only_fields = fields
 
     def get_linked_workspaces(self, instance):
@@ -259,6 +264,14 @@ class SpaceSerializer(ListDocumentSerializer):
             for link in instance.workspace_links.select_related("workspace")
             if request and link.workspace.is_shown_to(request.user)
         ]
+
+    def get_members_role(self, instance):
+        """
+        Collaborators: in the list of a workspace's spaces (`?workspace=`),
+        the role all its members have on the space, if they have one.
+        """
+        accesses = getattr(instance, "members_accesses", None)
+        return accesses[0].role if accesses else None
 
 
 class SpaceCreateSerializer(serializers.Serializer):
@@ -878,7 +891,17 @@ class SpaceViewSet(
             workspace = models.Workspace.objects.filter(id=workspace_id).first()
             if workspace is None or workspace.get_role(user) is None:
                 return queryset.none()
-            return queryset.filter(workspace_links__workspace=workspace)
+            # The role its members have on each, read in one query
+            members = models.make_team(models.TEAM_WORKSPACE, workspace.id)
+            return queryset.filter(
+                workspace_links__workspace=workspace
+            ).prefetch_related(
+                Prefetch(
+                    "accesses",
+                    queryset=models.DocumentAccess.objects.filter(team=members),
+                    to_attr="members_accesses",
+                )
+            )
 
         # The spaces I was given a role on, directly or through my groups
         if self.request.query_params.get("mine") in ("true", "1"):

@@ -19,6 +19,7 @@ and this project adheres to
 - ✨(backend) invitation emails show the logo of what they invite to
 - ✨(backend) invitations sent within minutes to one person go out as one email
 - ✨(frontend) the link of invitations sent together lists them to accept
+- ✨(frontend) adding someone to a workspace can add them to its spaces too
 - ✨(docspec) handle DocSpec 4xx/5xx import errors distinctly #2552
 - 🌐(frontend) add Crowdin translator context #2785
 

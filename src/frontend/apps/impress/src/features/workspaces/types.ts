@@ -105,6 +105,8 @@ export interface LinkedWorkspace {
 
 export type Space = Doc & {
   linked_workspaces: LinkedWorkspace[];
+  /** In a workspace's list: the role all its members have on it, if any */
+  members_role?: string | null;
 };
 
 export enum SpaceVisibility {
