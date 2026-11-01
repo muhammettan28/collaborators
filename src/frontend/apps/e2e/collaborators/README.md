@@ -15,7 +15,7 @@ link, and opens it full screen. Then: pasting its address shows it again, a
 signed-out reader of a public page sees it without the menu, presenter mode
 shows it, and removing it frees the storage it used. A presentation sent
 with its PDF twin (printed from `decks/twin.html` during the test) gets the
-Slides tab and gives its own PDF; a new file alone leaves it out of date
+Slides tab (paged with its buttons, and played) and gives its own PDF; a new file alone leaves it out of date
 until its PDF follows. An animation (`decks/animation.html`) gets a time bar
 once its editor turns it on, and moves to where it is set; one driven by a
 script (`decks/script-animation.html`) moves through its own time handle,

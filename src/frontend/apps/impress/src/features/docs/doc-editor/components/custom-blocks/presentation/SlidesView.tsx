@@ -45,17 +45,28 @@ const controlsCss = css`
     opacity: 0.4;
     cursor: default;
   }
-  & input {
-    flex: 1;
-    accent-color: #fff;
-    min-width: 60px;
+  & select {
+    background: transparent;
+    color: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 4px;
+    font-size: 12px;
+    padding: 0 2px;
+  }
+  & option {
+    color: #000;
   }
 `;
 
+/** How long each slide shows while they play, to choose from */
+const SECONDS = [1, 2, 3, 5, 10, 15, 30];
+const DEFAULT_SECONDS = 3;
+
 /**
- * The presentation's PDF twin, one page at a time: back and forward (the
- * arrow keys too), where one is, and a slider to jump anywhere. Its pages
- * are drawn by pdf.js, which runs no script of the file.
+ * The presentation's PDF twin, one page at a time: first, back, play or
+ * pause, forward and last (the arrow keys, Home and End too), where one is,
+ * and how many seconds each slide shows while they play (3 by default). Its
+ * pages are drawn by pdf.js, which runs no script of the file.
  */
 export const SlidesView = forwardRef<
   HTMLDivElement,
@@ -73,6 +84,8 @@ export const SlidesView = forwardRef<
   const [pdf, setPdf] = useState<PdfDocument | null>(null);
   const [failed, setFailed] = useState(false);
   const [page, setPage] = useState(1);
+  const [playing, setPlaying] = useState(false);
+  const [seconds, setSeconds] = useState(DEFAULT_SECONDS);
   const [width, setWidth] = useState(0);
   const canvas = useRef<HTMLCanvasElement>(null);
   const area = useRef<HTMLDivElement>(null);
@@ -160,6 +173,34 @@ export const SlidesView = forwardRef<
   const total = pdf?.numPages ?? presentation.pdf.pages ?? 0;
   const go = (to: number) => setPage(Math.max(1, Math.min(total, to)));
 
+  // while it plays, the next slide after its seconds; it stops on the last
+  useEffect(() => {
+    if (!playing || !pdf) {
+      return;
+    }
+    if (page >= total) {
+      setPlaying(false);
+      return;
+    }
+    const timer = setTimeout(
+      () => setPage((current) => Math.min(total, current + 1)),
+      seconds * 1000,
+    );
+    return () => clearTimeout(timer);
+  }, [playing, pdf, page, total, seconds]);
+
+  const togglePlay = () => {
+    if (playing) {
+      setPlaying(false);
+      return;
+    }
+    // played to its end, it starts again from the first
+    if (page >= total) {
+      setPage(1);
+    }
+    setPlaying(true);
+  };
+
   return (
     <Box
       ref={ref}
@@ -179,6 +220,12 @@ export const SlidesView = forwardRef<
         } else if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
           event.preventDefault();
           go(page - 1);
+        } else if (event.key === 'Home') {
+          event.preventDefault();
+          go(1);
+        } else if (event.key === 'End') {
+          event.preventDefault();
+          go(total);
         }
       }}
       data-testid="presentation-slides"
@@ -213,10 +260,22 @@ export const SlidesView = forwardRef<
       <Box
         $direction="row"
         $align="center"
+        $justify="center"
         $gap="xs"
         $padding={{ horizontal: 'xs', vertical: '2px' }}
         $css={controlsCss}
+        data-testid="presentation-slides-controls"
       >
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={() => go(1)}
+          aria-label={t('First slide', {
+            description: 'Button showing the first slide',
+          })}
+        >
+          <Icon iconName="first_page" $size="20px" $color="inherit" />
+        </button>
         <button
           type="button"
           disabled={page <= 1}
@@ -229,6 +288,27 @@ export const SlidesView = forwardRef<
         </button>
         <button
           type="button"
+          disabled={total <= 1}
+          onClick={togglePlay}
+          aria-label={
+            playing
+              ? t('Pause the slides', {
+                  description: 'Button stopping the slides from moving on',
+                })
+              : t('Play the slides', {
+                  description:
+                    'Button moving on to the next slide every few seconds',
+                })
+          }
+        >
+          <Icon
+            iconName={playing ? 'pause' : 'play_arrow'}
+            $size="20px"
+            $color="inherit"
+          />
+        </button>
+        <button
+          type="button"
           disabled={page >= total}
           onClick={() => go(page + 1)}
           aria-label={t('Next slide', {
@@ -237,24 +317,40 @@ export const SlidesView = forwardRef<
         >
           <Icon iconName="chevron_right" $size="20px" $color="inherit" />
         </button>
-        <input
-          type="range"
-          min={1}
-          max={Math.max(1, total)}
-          step={1}
-          value={page}
-          aria-label={t('Slide', {
-            description: 'Label of the slider moving through the slides',
+        <button
+          type="button"
+          disabled={page >= total}
+          onClick={() => go(total)}
+          aria-label={t('Last slide', {
+            description: 'Button showing the last slide',
           })}
-          onChange={(event) => go(Number(event.target.value))}
-        />
+        >
+          <Icon iconName="last_page" $size="20px" $color="inherit" />
+        </button>
         <Text
           $size="xs"
           $color="inherit"
-          $css="font-variant-numeric: tabular-nums;"
+          $css="font-variant-numeric: tabular-nums; min-width: 3.5em;"
         >
           {page} / {total}
         </Text>
+        <select
+          value={seconds}
+          onChange={(event) => setSeconds(Number(event.target.value))}
+          aria-label={t('Seconds per slide', {
+            description:
+              'Label of the choice of how long each slide shows while they play',
+          })}
+        >
+          {SECONDS.map((choice) => (
+            <option key={choice} value={choice}>
+              {t('{{seconds}} s', {
+                description: 'A number of seconds, short: "3 s"',
+                seconds: choice,
+              })}
+            </option>
+          ))}
+        </select>
       </Box>
     </Box>
   );

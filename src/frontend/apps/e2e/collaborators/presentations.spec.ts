@@ -457,9 +457,31 @@ test('a presentation with its PDF: slides, its own PDF, kept in step', async ({
   });
   await slides.getByRole('button', { name: 'Next slide' }).click();
   await expect(slides.getByText('2 / 3')).toBeVisible();
-  await slides.getByRole('slider', { name: 'Slide' }).fill('3');
+  await slides.getByRole('button', { name: 'Last slide' }).click();
   await expect(slides.getByLabel('Slide 3 of 3')).toBeVisible();
   await slides.press('ArrowLeft');
+  await expect(slides.getByText('2 / 3')).toBeVisible();
+  await slides.getByRole('button', { name: 'First slide' }).click();
+  await expect(slides.getByText('1 / 3')).toBeVisible();
+
+  // played, they move on by themselves (3 seconds each unless chosen) and
+  // stop on the last; played again, they start from the first
+  const seconds = slides.getByRole('combobox', { name: 'Seconds per slide' });
+  await expect(seconds).toHaveValue('3');
+  await seconds.selectOption('1');
+  await slides.getByRole('button', { name: 'Play the slides' }).click();
+  await expect(slides.getByText('2 / 3')).toBeVisible({ timeout: 3_000 });
+  await expect(slides.getByText('3 / 3')).toBeVisible({ timeout: 3_000 });
+  await expect(
+    slides.getByRole('button', { name: 'Play the slides' }),
+  ).toBeVisible();
+  await seconds.selectOption('5');
+  await slides.getByRole('button', { name: 'Play the slides' }).click();
+  await expect(slides.getByText('1 / 3')).toBeVisible();
+  await slides.getByRole('button', { name: 'Pause the slides' }).click();
+  await page.waitForTimeout(1_500);
+  await expect(slides.getByText('1 / 3')).toBeVisible();
+  await slides.getByRole('button', { name: 'Next slide' }).click();
   await expect(slides.getByText('2 / 3')).toBeVisible();
 
   // a click in it doesn't tint the whole block, as a selected block would be
