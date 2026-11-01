@@ -43,7 +43,7 @@ describe('Merging an account added that has its own', () => {
       'ada@work.example already has its own Collaborators account. Merge it into this one?',
     );
     expect(proposal).toHaveTextContent(
-      'Pages it owns: 3 · shared with it: 2 · workspaces: 1 · groups: 0.',
+      'Pages it owns: 3 · shared with it: 2 · workspaces: 1 · user groups: 0.',
     );
     expect(screen.getByRole('button', { name: 'Not now' })).toBeInTheDocument();
     fireEvent.click(

@@ -89,7 +89,7 @@ export const MoveMembersModal = ({
       <Box $gap="sm" $padding={{ top: 'xs' }}>
         <Select
           fullWidth
-          label={t('To the group', {
+          label={t('To the user group', {
             description: 'Label choosing the group people go to',
           })}
           clearable={false}

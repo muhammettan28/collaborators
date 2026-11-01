@@ -72,7 +72,7 @@ export const DocShareMemberItem = ({
   // member, named after the team, with "Group" in place of an email.
   const member: User = access.user ?? {
     id: access.team,
-    email: t('Group', { description: 'Shown under the name of a group' }),
+    email: t('User group', { description: 'Shown under the name of a group' }),
     full_name: access.team_label || access.team,
     short_name: access.team_label || access.team,
     is_first_connection: false,

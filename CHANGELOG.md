@@ -16,6 +16,7 @@ and this project adheres to
 - ✨(backend) a presentation's PDF twin, sent and replaced with its HTML
 - ✨(frontend) presentations: Motion and Slides tabs, a time bar for animations
 - ✨(backend) a guide for AIs making presentations, and checks of each file
+- ✨(backend) invitation emails show the logo of what they invite to
 - ✨(docspec) handle DocSpec 4xx/5xx import errors distinctly #2552
 - 🌐(frontend) add Crowdin translator context #2785
 
@@ -29,6 +30,10 @@ and this project adheres to
 - 💄(frontend) a presentation's time bar and slide buttons go below it
 - 💄(frontend) an animation with its time bar waits for Play
 - 💄(frontend) presentation comes first in the / menu
+- 💬(collaborators) groups of people are called "user groups" everywhere
+- 💄(mail) the brand's name atop emails holds on one row, even on phones
+- 💄(mail) emails end with the tagline led by the logo, its emojis upright
+- 💄(mail) slim side margins on screens narrower than 500px
 
 ### Fixed
 

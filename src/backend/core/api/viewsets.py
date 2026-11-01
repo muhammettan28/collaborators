@@ -3128,6 +3128,7 @@ class InvitationViewset(
             self.request.user,
             self.request.user.language or settings.LANGUAGE_CODE,
             link=invitations.invite_link(invitations.DOCUMENT, invitation),
+            logo_img=invitations.invite_logo_url(invitations.DOCUMENT, invitation),
         )
 
 

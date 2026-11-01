@@ -1,14 +1,20 @@
 """Custom template tags for the core application of Docs."""
 
 import base64
+import re
 
 from django import template
 from django.contrib.staticfiles import finders
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 
 from PIL import ImageFile as PillowImageFile
 
 register = template.Library()
+
+# An emoji, with its optional variation selector (e.g. "✍️" is U+270D U+FE0F)
+EMOJI = re.compile(
+    "([\u2300-\u23ff\u2600-\u27bf\u2b00-\u2bff\U0001f000-\U0001faff]\ufe0f?)"
+)
 
 
 def image_to_base64(file_or_path, close=False):
@@ -63,10 +69,18 @@ def base64_static(path):
 def wordmark(name):
     """
     Collaborators: the brand's name in the style of its logo (bold italic
-    capitals in indigo), as at the top of HTML emails.
+    capitals in indigo), as at the top of HTML emails. Its emojis are never
+    italic: they stay upright, as on the platform.
     """
+    pieces = (
+        (format_html('<span style="font-style:normal;">{}</span>', part),)
+        if EMOJI.fullmatch(part)
+        else (part,)
+        for part in EMOJI.split(str(name))
+        if part
+    )
     return format_html(
         '<span style="font-weight:800;font-style:italic;color:#4747A3;'
         'white-space:nowrap;">{}</span>',
-        name,
+        format_html_join("", "{}", pieces),
     )

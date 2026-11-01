@@ -146,7 +146,9 @@ class WorkspaceSerializer(serializers.ModelSerializer):
         if value is not None and (
             self.instance is None or value.workspace_id != self.instance.id
         ):
-            raise serializers.ValidationError(_("Choose a group of this workspace."))
+            raise serializers.ValidationError(
+                _("Choose a user group of this workspace.")
+            )
         return value
 
 
@@ -304,7 +306,11 @@ class SpaceCreateSerializer(serializers.Serializer):
             workspace is None or group.workspace_id != workspace.id for group in groups
         ):
             raise serializers.ValidationError(
-                {"editor_group_ids": _("Groups must belong to the space's workspace.")}
+                {
+                    "editor_group_ids": _(
+                        "User groups must belong to the space's workspace."
+                    )
+                }
             )
 
         attrs["workspace"] = workspace
@@ -704,7 +710,7 @@ class GroupMembershipViewSet(viewsets.ModelViewSet):
         ).first()
         if target is None or target == self.group:
             raise drf.exceptions.ValidationError(
-                {"to_group_id": _("Choose another group of this workspace.")}
+                {"to_group_id": _("Choose another user group of this workspace.")}
             )
         if not target.get_abilities(request.user)["manage_members"]:
             raise drf.exceptions.PermissionDenied()

@@ -441,7 +441,7 @@ const QuickSearchInviteInputSection = ({
       {groups.length > 0 && (
         <QuickSearchGroup
           group={{
-            groupName: t('Groups', {
+            groupName: t('User groups', {
               description: 'Heading of a list of groups',
             }),
             elements: groups,

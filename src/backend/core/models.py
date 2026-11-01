@@ -1758,11 +1758,14 @@ class Document(MP_Node, BaseModel):
             except smtplib.SMTPException as exception:
                 logger.error("invitation to %s was not sent: %s", emails, exception)
 
-    def send_invitation_email(self, email, role, sender, language=None, link=None):
+    def send_invitation_email(  # noqa: PLR0913  # pylint: disable=too-many-arguments
+        self, email, role, sender, language=None, *, link=None, logo_img=None
+    ):
         """
         Method allowing a user to send an email invitation to another user for a document.
 
-        Collaborators: `link`, to the page accepting an invitation by email.
+        Collaborators: `link`, to the page accepting an invitation by email,
+        and `logo_img`, the address of the space's or page's logo for it.
         """
         language = language or get_language()
         role = RoleChoices(role).label
@@ -1776,7 +1779,11 @@ class Document(MP_Node, BaseModel):
         with override(language):
             context = {
                 **(
-                    {"link": link, "button_label": _("Accept the invitation")}
+                    {
+                        "link": link,
+                        "button_label": _("Accept the invitation"),
+                        "item_logo_img": logo_img,
+                    }
                     if link
                     else {}
                 ),
@@ -2510,7 +2517,7 @@ class Mention(BaseModel):
                     name=sender_name, group=group, title=title
                 )
                 message = _(
-                    "{name} mentioned {group}, a group you belong to, in the "
+                    "{name} mentioned {group}, a user group you belong to, in the "
                     "following document:"
                 ).format(name=sender_name, group=group)
             elif self.thread_id:
@@ -2861,14 +2868,14 @@ class Group(BaseModel):
     class Meta:
         db_table = "collaborators_group"
         ordering = ("name",)
-        verbose_name = _("Group")
-        verbose_name_plural = _("Groups")
+        verbose_name = _("User group")
+        verbose_name_plural = _("User groups")
         constraints = [
             models.UniqueConstraint(
                 fields=["workspace", "name"],
                 name="unique_group_name_per_workspace",
                 violation_error_message=_(
-                    "A group with this name already exists in this workspace."
+                    "A user group with this name already exists in this workspace."
                 ),
             ),
         ]
@@ -2920,13 +2927,13 @@ class GroupMembership(BaseModel):
     class Meta:
         db_table = "collaborators_group_membership"
         ordering = ("-created_at",)
-        verbose_name = _("Group membership")
-        verbose_name_plural = _("Group memberships")
+        verbose_name = _("User group membership")
+        verbose_name_plural = _("User group memberships")
         constraints = [
             models.UniqueConstraint(
                 fields=["group", "user"],
                 name="unique_group_user",
-                violation_error_message=_("This user is already in this group."),
+                violation_error_message=_("This user is already in this user group."),
             ),
         ]
 

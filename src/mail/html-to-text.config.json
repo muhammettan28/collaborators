@@ -6,6 +6,10 @@
       "options": {
         "uppercase": false
       }
+    },
+    {
+      "selector": "img[src=\"{{item_logo_img}}\"]",
+      "format": "skip"
     }
   ]
 }

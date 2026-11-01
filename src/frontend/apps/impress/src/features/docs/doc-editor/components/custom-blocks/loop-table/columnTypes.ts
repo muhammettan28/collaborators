@@ -63,7 +63,7 @@ export const operatorLabel = (
     lt: t('is less than', { description: 'Filter condition' }),
     before: t('is before', { description: 'Filter condition' }),
     after: t('is after', { description: 'Filter condition' }),
-    includes_me: t('includes me or my groups', {
+    includes_me: t('includes me or my user groups', {
       description: 'Filter condition',
     }),
   })[operator] ?? operator;
