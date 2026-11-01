@@ -18,7 +18,7 @@ import {
   DocsInlineContentSchema,
   DocsStyleSchema,
 } from '../types';
-import { keepGroupsTogether } from '../utils';
+import { arrangeSlashMenu } from '../utils';
 
 import BlockNoteAI from './AI';
 import {
@@ -71,7 +71,6 @@ export const BlockNoteSuggestionMenu = ({
       getPageBreakReactSlashMenuItems(editor),
       getMultiColumnSlashMenuItems?.(editor) || [],
       getPdfReactSlashMenuItems(editor, t, fileBlocksName),
-      getPresentationReactSlashMenuItems(editor, t, fileBlocksName),
       getCalloutReactSlashMenuItems(editor, t, basicBlocksName),
       getLoopTableReactSlashMenuItems(editor, t, basicBlocksName),
       getMathSlashMenuItems(editor),
@@ -79,21 +78,13 @@ export const BlockNoteSuggestionMenu = ({
       aiAllowed && getAISlashMenuItems ? getAISlashMenuItems(editor) : [],
     );
 
-    const index = combinedMenu.findIndex(
-      (item) =>
-        (item as DefaultReactSuggestionItem & { key: string })?.key ===
-        'callout',
-    );
-
-    const newSlashMenuItems = [
-      ...combinedMenu.slice(0, index + 1),
-      ...getInterlinkingMenuItems(editor, t),
-      ...combinedMenu.slice(index + 1),
-    ];
-
-    // Collaborators: "Links" came between "Callout" and "Table", splitting
-    // the basic blocks, whose heading then showed twice
-    const groupedItems = keepGroupsTogether(newSlashMenuItems);
+    // Collaborators: the presentation first, above every group; "Links" go
+    // after "Callout", keeping the basic blocks (and their heading) together
+    const groupedItems = arrangeSlashMenu<DefaultReactSuggestionItem>({
+      first: getPresentationReactSlashMenuItems(editor, t),
+      menu: combinedMenu,
+      links: getInterlinkingMenuItems(editor, t),
+    });
 
     return async (query: string) =>
       Promise.resolve(filterSuggestionItems(groupedItems, query));

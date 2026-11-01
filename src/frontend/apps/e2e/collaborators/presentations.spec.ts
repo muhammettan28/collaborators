@@ -108,9 +108,15 @@ test('an editor adds, reads, replaces and exports a presentation', async ({
   await openPage(page);
   const editor = page.locator('.ProseMirror').first();
 
-  // "/presentation" in the slash menu
+  // "/" shows the presentation first, above every group
   await editor.click();
-  await page.keyboard.type('/presentation');
+  await page.keyboard.type('/');
+  const options = page.getByRole('listbox').getByRole('option');
+  await expect(options.first()).toContainText('Presentation');
+  await expect(options.nth(1)).toContainText('Heading 1');
+
+  // "/presentation" in the slash menu
+  await page.keyboard.type('presentation');
   await expect(
     page.getByText('An HTML presentation readers click through'),
   ).toBeVisible();
