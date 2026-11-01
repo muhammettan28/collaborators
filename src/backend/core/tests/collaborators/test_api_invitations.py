@@ -119,6 +119,28 @@ def test_page_invitation_email_leads_to_the_invite_page(mailoutbox):
     assert page.get_role(existing) == "editor"
 
 
+def test_invitation_email_shows_the_logo_of_what_it_invites_to(mailoutbox):
+    """A space's or page's logo is in its email; without one, nothing is."""
+    owner = factories.UserFactory()
+    page = factories.DocumentFactory(users=[(owner, "owner")])
+
+    def invite(email):
+        client_for(owner).post(
+            f"/api/v1.0/documents/{page.id}/invitations/",
+            {"email": email, "role": "reader"},
+            format="json",
+        )
+
+    invite("first@example.com")
+    assert "/logo/" not in mailoutbox[0].alternatives[0][0]
+
+    models.ItemLogo.objects.create(document=page, content_type="image/png", data=PNG)
+    invite("second@example.com")
+    logo = f"/api/v1.0/invitations/{token_in(mailoutbox[1])}/logo/"
+    assert logo in mailoutbox[1].alternatives[0][0]
+    assert client_for().get(logo).content == PNG
+
+
 def test_a_newcomers_link_opens_what_their_account_already_took(mailoutbox):
     """
     Signing up takes one's invitations: back to the link, the newcomer is
@@ -212,6 +234,10 @@ def test_workspace_logo_set_by_administrators_shown_on_the_invite_page(mailoutbo
     token = token_in(mailoutbox[0])
     assert client_for().get(f"/api/v1.0/invitations/{token}/").json()["has_logo"]
     assert client_for().get(f"/api/v1.0/invitations/{token}/logo/").content == PNG
+    # Shown in its email too, not in the plain text version
+    logo = f"/api/v1.0/invitations/{token}/logo/"
+    assert logo in mailoutbox[0].alternatives[0][0]
+    assert logo not in mailoutbox[0].body
 
     assert client_for(admin).delete(url).status_code == 204
     assert client_for(admin).get(url).status_code == 404

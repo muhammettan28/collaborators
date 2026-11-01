@@ -34,6 +34,16 @@
       </mj-section>
       <mj-section mj-class="bg--white-100" padding="0px 20px 60px 20px">
         <mj-column>
+          <!-- Collaborators: the logo of the workspace, space or page one is invited to -->
+          <mj-raw>{% if item_logo_img %}</mj-raw>
+          <mj-image
+            src="{{item_logo_img}}"
+            width="96px"
+            align="center"
+            padding="30px 25px 0px 25px"
+            alt=""
+          />
+          <mj-raw>{% endif %}</mj-raw>
           <mj-text align="center" font-family="Inter, sans-serif">
             <h1>{{title|capfirst}}</h1>
           </mj-text>

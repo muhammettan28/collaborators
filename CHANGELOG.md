@@ -16,6 +16,7 @@ and this project adheres to
 - ✨(backend) a presentation's PDF twin, sent and replaced with its HTML
 - ✨(frontend) presentations: Motion and Slides tabs, a time bar for animations
 - ✨(backend) a guide for AIs making presentations, and checks of each file
+- ✨(backend) invitation emails show the logo of what they invite to
 - ✨(docspec) handle DocSpec 4xx/5xx import errors distinctly #2552
 - 🌐(frontend) add Crowdin translator context #2785
 

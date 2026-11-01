@@ -72,6 +72,20 @@ def invite_link(kind, invitation):
     return f"{domain}/invite/?token={make_token(kind, invitation)}"
 
 
+def invite_logo_url(kind, invitation):
+    """
+    The logo of what the invitation is to, for its email; None without one.
+    Shown while the invitation lasts, as on the page accepting it.
+    """
+    item = item_of(kind, invitation)
+    if not models.ItemLogo.objects.filter(
+        **{"workspace" if kind == WORKSPACE else "document": item}
+    ).exists():
+        return None
+    domain = settings.EMAIL_URL_APP or Site.objects.get_current().domain
+    return f"{domain}/api/v1.0/invitations/{make_token(kind, invitation)}/logo/"
+
+
 def find_invitation(token):
     """(kind, invitation) for a token; 404 when unknown, used or tampered."""
     try:
@@ -150,6 +164,7 @@ def send_invitation_mail(email, invitation, kind, sender, language=None):
         context = {
             "brandname": settings.EMAIL_BRAND_NAME,
             "logo_img": settings.EMAIL_LOGO_IMG,
+            "item_logo_img": invite_logo_url(kind, invitation),
             "title": _("{name} invited you to {what} {item}").format(
                 name=sender_name, what=what, item=name
             ),
