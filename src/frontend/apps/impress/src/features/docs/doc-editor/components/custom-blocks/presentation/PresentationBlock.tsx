@@ -954,7 +954,6 @@ export const PresentationBlock = createReactBlockSpec(
 export const getPresentationReactSlashMenuItems = (
   editor: DocsBlockNoteEditor,
   t: TFunction<'translation', undefined>,
-  group: string,
 ) => [
   {
     title: t('Presentation', { description: 'Name of the presentation block' }),
@@ -970,7 +969,6 @@ export const getPresentationReactSlashMenuItems = (
       'html',
       t('embed', { description: 'Search keyword for the presentation block' }),
     ],
-    group,
     icon: <Icon iconName="slideshow" $size="18px" />,
     subtext: t('An HTML presentation readers click through', {
       description: 'Description of the presentation block in the slash menu',

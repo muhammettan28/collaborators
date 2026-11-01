@@ -55,3 +55,28 @@ export const keepGroupsTogether = <T extends { group?: string }>(
   });
   return [...groups.values()].flat();
 };
+
+/**
+ * Collaborators: the "/" menu. `first` comes above every group (the
+ * presentation, which has no group: no heading shows above it), then the
+ * menu with `links` after the callout and each group kept together.
+ */
+export const arrangeSlashMenu = <T extends { group?: string; key?: string }>({
+  first,
+  menu,
+  links,
+}: {
+  first: T[];
+  menu: T[];
+  links: T[];
+}): T[] => {
+  const index = menu.findIndex((item) => item.key === 'callout');
+  return [
+    ...first,
+    ...keepGroupsTogether([
+      ...menu.slice(0, index + 1),
+      ...links,
+      ...menu.slice(index + 1),
+    ]),
+  ];
+};
