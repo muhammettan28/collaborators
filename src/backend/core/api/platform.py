@@ -18,8 +18,13 @@ it (see core.platform_roles), and what they do to accounts (core.accounts).
     POST   /api/v1.0/platform/reports/<id>/put-back/
     GET    /api/v1.0/platform/settings/                 (owners)
     PATCH  /api/v1.0/platform/settings/                 {name: true|false|null}
+    GET    /api/v1.0/platform/places/?q=                (owners)
+    POST   /api/v1.0/platform/add-to-places/            {people, places, notify} (owners)
 """
 
+from functools import partial
+
+from django.db import transaction
 from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 
@@ -28,10 +33,18 @@ from rest_framework import serializers
 from rest_framework.generics import ListAPIView
 from rest_framework.views import APIView
 
-from core import accounts, models, platform_roles, platform_settings, reports
+from core import (
+    accounts,
+    models,
+    placements,
+    platform_roles,
+    platform_settings,
+    reports,
+)
 from core.api import permissions
 from core.api.registrations import IsPlatformManager
 from core.choices import PlatformRoleChoices, RegistrationStatusChoices, RoleChoices
+from core.tasks.mail import send_added_to_places_mail
 
 
 class PeoplePagination(drf.pagination.PageNumberPagination):
@@ -408,3 +421,54 @@ class PlatformSettingsView(APIView):
         except ValueError as err:
             raise drf.exceptions.ValidationError({"detail": str(err)}) from err
         return drf.response.Response(platform_settings.describe())
+
+
+class PlacesView(APIView):
+    """
+    Workspaces, spaces and pages of the whole platform, found by name, for
+    platform owners to add people to (core.placements).
+    """
+
+    permission_classes = [IsPlatformOwner]
+
+    def get(self, request):
+        """Up to twenty of each kind, newest first."""
+        return drf.response.Response(
+            placements.find_places(request.query_params.get("q"))
+        )
+
+
+class AddToPlacesView(APIView):
+    """
+    Platform owners add people to places, apart from invitations: each one
+    gets the role chosen there (never lowered), and an email unless `notify`
+    is false.
+    """
+
+    permission_classes = [IsPlatformOwner]
+
+    def post(self, request):
+        """What it did, for each person and place."""
+        people = request.data.get("people")
+        places = request.data.get("places")
+        if not isinstance(people, list) or not isinstance(places, list):
+            raise drf.exceptions.ValidationError(
+                {"detail": "people and places are lists"}
+            )
+        notify = request.data.get("notify", True) is not False
+        try:
+            outcomes = placements.add_to_places(request.user, people, places, notify)
+        except placements.PlacementError as err:
+            raise drf.exceptions.ValidationError({"detail": str(err)}) from err
+        for outcome in outcomes:
+            changed = placements.to_tell(outcome)
+            if notify and changed:
+                transaction.on_commit(
+                    partial(
+                        send_added_to_places_mail.delay,
+                        outcome["id"],
+                        str(request.user.id),
+                        changed,
+                    )
+                )
+        return drf.response.Response(outcomes)

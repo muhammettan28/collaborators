@@ -2,7 +2,7 @@
 
 from django.conf import settings
 
-from core import invitations, models
+from core import invitations, models, placements
 from core.utils.analytics import PosthogEventName, posthog_capture
 
 from impress.celery_app import app
@@ -54,3 +54,12 @@ def send_invitation_bundle(bundle_id, version):
     within a few minutes, once no other joined them for that long.
     """
     invitations.send_bundle(bundle_id, version)
+
+
+@app.task
+def send_added_to_places_mail(user_id, actor_id, places):
+    """
+    Collaborators: the email telling someone where a platform owner added
+    them (core.placements).
+    """
+    placements.send_added_mail(user_id, actor_id, places)
