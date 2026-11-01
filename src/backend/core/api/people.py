@@ -252,6 +252,8 @@ class PeopleDirectoryView(APIView):
         for person in people:
             profile = profiles.get(person.id) or models.UserProfile(user=person)
             relation = Viewer(person, me)
+            # known already: not looked up again for each person
+            relation.is_colleague = person.id in closeness
             result.append(
                 {
                     "id": str(person.id),

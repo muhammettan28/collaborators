@@ -31,25 +31,42 @@ def get_users_sharing_documents_with_cache_key(user_id):
     return f"users_sharing_documents_with_{user_id}"
 
 
-def _team_members(team):
-    """The users a team string stands for."""
-    kind, obj_id = models.parse_team(team)
-    if kind == models.TEAM_GROUP:
-        return models.GroupMembership.objects.filter(group_id=obj_id).values_list(
-            "user_id", flat=True
+def _members_of_teams(teams):
+    """
+    The users each team string stands for, as {team: [user ids]}: one query
+    per kind of team (groups, whole workspaces, workspace administrators),
+    however many teams there are.
+    """
+    by_kind = {}
+    for team in teams:
+        kind, obj_id = models.parse_team(team)
+        if kind is not None:
+            by_kind.setdefault(kind, {})[obj_id] = team
+    members = {team: [] for team in teams}
+    groups = by_kind.get(models.TEAM_GROUP, {})
+    if groups:
+        for group_id, user_id in models.GroupMembership.objects.filter(
+            group_id__in=list(groups)
+        ).values_list("group_id", "user_id"):
+            members[groups[group_id]].append(user_id)
+    for kind, roles in (
+        (models.TEAM_WORKSPACE, None),
+        (models.TEAM_WORKSPACE_ADMINS, models.WORKSPACE_PRIVILEGED_ROLES),
+    ):
+        workspaces = by_kind.get(kind, {})
+        if not workspaces:
+            continue
+        accesses = models.WorkspaceAccess.objects.filter(
+            workspace_id__in=list(workspaces)
         )
-    if kind == models.TEAM_WORKSPACE:
-        return models.WorkspaceAccess.objects.filter(workspace_id=obj_id).values_list(
-            "user_id", flat=True
-        )
-    if kind == models.TEAM_WORKSPACE_ADMINS:
-        return models.WorkspaceAccess.objects.filter(
-            workspace_id=obj_id, role__in=models.WORKSPACE_PRIVILEGED_ROLES
-        ).values_list("user_id", flat=True)
-    return []
+        if roles is not None:
+            accesses = accesses.filter(role__in=roles)
+        for workspace_id, user_id in accesses.values_list("workspace_id", "user_id"):
+            members[workspaces[workspace_id]].append(user_id)
+    return members
 
 
-def _related_paths_query(paths, steplen):
+def _related_paths_query(paths, steplen, field="document__path"):
     """Documents above, at or under any of these paths."""
     # under a path also under another one: covered by the higher one
     kept = sorted(set(paths), key=len)
@@ -58,9 +75,9 @@ def _related_paths_query(paths, steplen):
         if not any(path.startswith(top) for top in tops):
             tops.append(path)
     above = {path[:end] for path in kept for end in range(steplen, len(path), steplen)}
-    query = db.Q(document__path__in=above)
+    query = db.Q(**{f"{field}__in": above})
     for top in tops:
-        query |= db.Q(document__path__startswith=top)
+        query |= db.Q(**{f"{field}__startswith": top})
     return query
 
 
@@ -71,7 +88,9 @@ def users_sharing_documents_with(user_id):
 
     Collaborators: "sharing" is having a role in the same tree, the one
     above or under the other (a space and its pages), directly or through a
-    group or a workspace, or being members of the same workspace.
+    group or a workspace, or being members of the same workspace. A page
+    linked into a space counts as in that space too (its people may read
+    it). Pages in the trashbin don't count: the others lost them.
     """
     start_time = time.time()
     cache_key = get_users_sharing_documents_with_cache_key(user_id)
@@ -99,29 +118,51 @@ def users_sharing_documents_with(user_id):
         .values_list("collaborator_teams", flat=True)
         .first()
     ) or []
-    my_paths = list(
+    mine = db.Q(user_id=user_id) | db.Q(team__in=teams)
+    steplen = models.Document.steplen
+    my_paths = set(
         models.DocumentAccess.objects.filter(
-            db.Q(user_id=user_id) | db.Q(team__in=teams),
-            document__deleted_at__isnull=True,
-        )
-        .values_list("document__path", flat=True)
-        .distinct()
+            mine, document__ancestors_deleted_at__isnull=True
+        ).values_list("document__path", flat=True)
+    )
+    # the pages linked into the spaces I have a role on: I may read them
+    my_paths.update(
+        models.PageSpaceLink.objects.filter(
+            db.Q(space__accesses__user_id=user_id)
+            | db.Q(space__accesses__team__in=teams),
+            space__ancestors_deleted_at__isnull=True,
+            page__ancestors_deleted_at__isnull=True,
+        ).values_list("page__path", flat=True)
     )
     if my_paths:
-        shared = (
+        alive = db.Q(document__ancestors_deleted_at__isnull=True)
+        # a role in the same tree: on my pages, above or under them
+        shared = list(
             models.DocumentAccess.objects.filter(
-                _related_paths_query(my_paths, models.Document.steplen)
+                _related_paths_query(my_paths, steplen), alive
             )
             .values("user", "team")
             .annotate(last_shared=db.Max("created_at"))
         )
+        # a role on a space into which a page of that tree is linked
+        shared += list(
+            models.DocumentAccess.objects.filter(
+                document__in=models.PageSpaceLink.objects.filter(
+                    _related_paths_query(my_paths, steplen, "page__path"),
+                    page__ancestors_deleted_at__isnull=True,
+                ).values("space_id"),
+            )
+            .filter(alive)
+            .values("user", "team")
+            .annotate(last_shared=db.Max("created_at"))
+        )
+        # a group or a workspace: each of its members
+        members = _members_of_teams({item["team"] for item in shared if item["team"]})
         for item in shared:
             if item["user"]:
                 note(item["user"], item["last_shared"])
-            elif item["team"]:
-                # a group or a workspace: each of its members
-                for member_id in _team_members(item["team"]):
-                    note(member_id, item["last_shared"])
+            for member_id in members.get(item["team"], ()):
+                note(member_id, item["last_shared"])
 
     # Collaborators: the members of my workspaces count as close too, so that
     # they can be found by name to share with or to mention

@@ -61,6 +61,13 @@ def document_post_save(sender, instance, created, **kwargs):  # pylint: disable=
                 "page_id", flat=True
             )
         )
+    # Collaborators: put in the trashbin (saved with its date) or taken out
+    # of it (saved without): the others lose it, or get it back
+    if not created and (
+        instance.deleted_at is not None
+        or "deleted_at" in (kwargs.get("update_fields") or ())
+    ):
+        forget_all_people()
     # once committed: taken now, a save rolled back with its savepoint would
     # leave the snapshot of a value the database never got, and saving that
     # value again would report no change
@@ -138,5 +145,10 @@ def refresh_linked_pages(page_ids):
 @receiver(signals.post_save, sender=models.PageSpaceLink)
 @receiver(signals.post_delete, sender=models.PageSpaceLink)
 def page_space_link_changed(sender, instance, **kwargs):  # pylint: disable=unused-argument
-    """Collaborators: a page linked into a space, or no longer, takes its link."""
+    """
+    Collaborators: a page linked into a space, or no longer, takes its link,
+    and the people of that space share the page with its own people, or no
+    longer.
+    """
     refresh_linked_pages([instance.page_id])
+    forget_all_people()

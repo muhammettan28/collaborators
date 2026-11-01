@@ -21,11 +21,19 @@ once its editor turns it on, and moves to where it is set; one driven by a
 script (`decks/script-animation.html`) moves through its own time handle,
 and the bar follows its clock though it starts late.
 
-It needs:
+## my-collaborators.spec.ts
 
-- the local stack running and up to date (`make run`, then `make migrate`).
-  The `user-e2e-chromium` account it signs in with comes with the local
-  Keycloak (`docker/auth/realm.json`); nothing else needs seeding;
+"My Collaborators" shows each person the server lists for the e2e account
+(with the workspaces shared, each row opening their profile), and "Nobody
+here yet" exactly when nobody shares a workspace, a space or a page with it.
+A list that cannot be loaded says so, and the empty screen leads to the
+workspaces one can join. It only reads: it creates nothing.
+
+Both need the local stack running and up to date (`make run`, then
+`make migrate`). The `user-e2e-chromium` account they sign in with comes with
+the local Keycloak (`docker/auth/realm.json`); nothing else needs seeding.
+The presentations also need:
+
 - the presentation renderer (`presentation-renderer` in `compose.yml`), for the
   PDF;
 - internet access: the deck shown from a link is a public file on GitHub
@@ -45,6 +53,8 @@ Then:
 ```bash
 yarn workspace app-e2e test:collaborators
 ```
+
+(add a file's name, such as `my-collaborators`, to run only its tests)
 
 The addresses come from `apps/e2e/.env` (`BASE_URL`, `BASE_API_URL`); put your
 own in `.env.local`. Each run leaves a page called "E2E presentations" in the

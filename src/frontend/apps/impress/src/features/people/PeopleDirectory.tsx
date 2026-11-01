@@ -1,4 +1,4 @@
-import { Input } from '@gouvfr-lasuite/ui-components';
+import { Button, Input } from '@gouvfr-lasuite/ui-components';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { Box, Icon, Loading, StyledLink, Text } from '@/components';
 import { UserAvatar } from '@/features/auth/components/UserAvatar';
 import { CARD_ICON_GAP } from '@/features/dashboard/CardParts';
 import { profileHref } from '@/features/profile/api';
+import { SEARCH_PATH } from '@/features/search/api';
 
 /** Someone one may see, with what their profile lets one see. */
 export interface DirectoryPerson {
@@ -56,16 +57,61 @@ const rowCss = css`
   }
 `;
 
+const emptyCss = css`
+  align-items: center;
+  text-align: center;
+  padding: var(--c--globals--spacings--lg) var(--c--globals--spacings--md);
+  border: 1px dashed var(--c--contextuals--border--surface--primary);
+  border-radius: var(--c--globals--spacings--xs);
+`;
+
+/**
+ * Nobody one shares anything with yet: said plainly, with what makes people
+ * appear here and where to find a workspace to join.
+ */
+const NobodyYet = () => {
+  const { t } = useTranslation();
+  return (
+    <Box $gap="xs" $css={emptyCss} data-testid="people-directory-empty">
+      <Icon iconName="group" $size="32px" $variation="secondary" />
+      <Text as="h2" $size="md" $weight="700" $margin="none">
+        {t('Nobody here yet', {
+          description: 'My Collaborators: heading when one shares nothing',
+        })}
+      </Text>
+      <Text $size="sm" $variation="secondary" $css="max-width: 32rem;">
+        {t(
+          'The people you share a workspace, a space or a page with appear here. Join a workspace, or share a page with someone, and they will show up.',
+          { description: 'My Collaborators: what makes people appear' },
+        )}
+      </Text>
+      <StyledLink href={SEARCH_PATH}>
+        <Text $size="sm" $theme="brand" $weight="600">
+          {t('Find a workspace to join', {
+            description: 'My Collaborators: link to the Search screen',
+          })}
+        </Text>
+      </StyledLink>
+    </Box>
+  );
+};
+
 /**
  * "My Collaborators": everyone one may see, those one shares a workspace,
  * space or page with first, then those who let everyone find them. Each
- * opens their profile.
+ * opens their profile. With nobody to share with, it says so (the people
+ * open to everyone still show below).
  */
 export const PeopleDirectory = () => {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [debounced] = useDebounce(query.trim(), 250);
-  const { data: people = [], isLoading } = usePeopleDirectory(debounced);
+  const {
+    data: people = [],
+    isLoading,
+    isError,
+    refetch,
+  } = usePeopleDirectory(debounced);
   const colleagues = people.filter((person) => person.is_colleague);
   const others = people.filter((person) => !person.is_colleague);
 
@@ -137,16 +183,28 @@ export const PeopleDirectory = () => {
         icon={<Icon iconName="search" $size="20px" />}
       />
       {isLoading && <Loading />}
-      {!isLoading && !people.length && (
+      {isError && (
+        <Box $direction="row" $gap="xs" $align="center" role="alert">
+          <Text $size="sm" $theme="error">
+            {t('The list could not be loaded.', {
+              description: 'My Collaborators: the request failed',
+            })}
+          </Text>
+          <Button size="small" variant="tertiary" onClick={() => refetch()}>
+            {t('Try again', {
+              description: 'My Collaborators: load the list again',
+            })}
+          </Button>
+        </Box>
+      )}
+      {!isLoading && !isError && !colleagues.length && !debounced && (
+        <NobodyYet />
+      )}
+      {!isLoading && !isError && !people.length && debounced && (
         <Text $size="sm" $variation="secondary">
-          {debounced
-            ? t('Nobody found.', {
-                description: 'My Collaborators: no match',
-              })
-            : t(
-                'People you share a workspace, a space or a page with appear here, and those who let everyone find them.',
-                { description: 'My Collaborators: empty' },
-              )}
+          {t('Nobody found.', {
+            description: 'My Collaborators: no match',
+          })}
         </Text>
       )}
       {section(
