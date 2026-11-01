@@ -221,3 +221,21 @@ def test_organizations_of_every_account_count(configured):  # pylint: disable=un
     assert identity.organizations == [ORG]
     assert user.collaborator_own_organizations == [own]
     assert user.collaborator_organizations == [own, ORG]
+
+
+def test_removing_an_account_forgets_its_address_on_the_profile():
+    """The profile shows the account's own address again."""
+    user = factories.UserFactory()
+    identity = models.SignInIdentity.objects.create(
+        user=user, provider="google", sub="g-2", account="ada@work.example"
+    )
+    models.UserProfile.objects.create(user=user, shown_email="ada@work.example")
+    client = APIClient()
+    client.force_login(user)
+
+    response = client.delete(
+        f"/api/v1.0/users/me/sign-in-methods/google/accounts/{identity.id}/"
+    )
+
+    assert response.status_code == 204
+    assert models.UserProfile.objects.get(user=user).shown_email == ""

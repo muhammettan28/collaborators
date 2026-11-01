@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 
 from core import identities, joining, merging
 from core.api import permissions
+from core.api.profiles import forget_lost_address
 from core.services import keycloak
 
 
@@ -110,6 +111,7 @@ class SignInMethodView(APIView):
             raise drf.exceptions.APIException(
                 _("This sign-in method can't be disconnected right now.")
             ) from err
+        forget_lost_address(request.user, links[provider])
         return drf.response.Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -186,12 +188,14 @@ class SignInAccountView(APIView):
 
     def delete(self, request, provider, identity_id):
         """It no longer opens this account."""
-        deleted, _count = request.user.sign_in_identities.filter(
+        identity = request.user.sign_in_identities.filter(
             pk=identity_id, provider=provider
-        ).delete()
-        if not deleted:
+        ).first()
+        if identity is None:
             raise drf.exceptions.NotFound()
+        identity.delete()
         joining.merge_organizations(request.user)
+        forget_lost_address(request.user, identity.account)
         return drf.response.Response(status=status.HTTP_204_NO_CONTENT)
 
 

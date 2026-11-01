@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from core import models
 from core.api import permissions
 from core.api.filters import remove_accents
-from core.api.profiles import Viewer
+from core.api.profiles import Viewer, emails_seen_by
 from core.api.serializers import UserSerializer
 from core.choices import WORKSPACE_PRIVILEGED_ROLES
 from core.utils.users import findable_user_ids, users_sharing_documents_with
@@ -26,39 +26,45 @@ class KnownPeopleView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """The people the requester works with whose name or email match."""
-        closeness = users_sharing_documents_with(request.user.id)
+        """
+        The people the requester works with whose name or email match, each
+        with the address their profile shows the requester.
+        """
+        me = request.user
+        closeness = users_sharing_documents_with(me.id)
         query = remove_accents((request.query_params.get("q") or "").strip()).lower()
-        people = [
-            person
-            for person in models.User.objects.filter(
-                id__in=list(closeness), is_active=True
+        others = list(
+            models.User.objects.filter(id__in=list(closeness), is_active=True)
+        )
+        emails = emails_seen_by(me, [me, *others], closeness)
+
+        def matches(person):
+            return (
+                not query
+                or query in remove_accents(person.full_name or "").lower()
+                or query in (person.email or "").lower()
+                or query in emails[person.id].lower()
             )
-            if not query
-            or query in remove_accents(person.full_name or "").lower()
-            or query in (person.email or "").lower()
-        ]
+
+        people = [person for person in others if matches(person)]
         people.sort(key=lambda person: closeness[person.id], reverse=True)
         # Oneself first: to mention oneself, or take a row in a Person cell
-        me = request.user
-        if (
-            not query
-            or query in remove_accents(me.full_name or "").lower()
-            or query in (me.email or "").lower()
-        ):
+        if matches(me):
             people.insert(0, me)
-        return drf.response.Response(
-            UserSerializer(people[:PEOPLE_LIMIT], many=True).data
-        )
+        people = people[:PEOPLE_LIMIT]
+        data = UserSerializer(people, many=True).data
+        for person, item in zip(people, data, strict=True):
+            item["email"] = emails[person.id]
+        return drf.response.Response(data)
 
 
 class PersonCardView(APIView):
     """
     GET /api/v1.0/people/<id>/ — the card shown when hovering a mention.
 
-    For someone the requester works with: their name, email, the workspaces
-    they share and their groups there. For anyone else, only the name (which
-    the mention shows anyway).
+    For someone the requester works with: their name, the address their
+    profile shows the requester, the workspaces they share and their groups
+    there. For anyone else, only the name (which the mention shows anyway).
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -79,7 +85,8 @@ class PersonCardView(APIView):
             "workspaces": [],
             "groups": [],
         }
-        known = person.id == me.id or person.id in users_sharing_documents_with(me.id)
+        colleague_ids = users_sharing_documents_with(me.id)
+        known = person.id == me.id or person.id in colleague_ids
         if not known:
             return drf.response.Response(card)
         shared = models.Workspace.objects.filter(accesses__user=me).filter(
@@ -88,7 +95,7 @@ class PersonCardView(APIView):
         card.update(
             {
                 "known": True,
-                "email": person.email or "",
+                "email": emails_seen_by(me, [person], colleague_ids)[person.id],
                 "workspaces": [
                     {"id": str(workspace.id), "name": workspace.name}
                     for workspace in shared.distinct().order_by("name")
@@ -212,14 +219,17 @@ class PeopleDirectoryView(APIView):
         closeness = users_sharing_documents_with(me.id)
         open_ids = set(findable_user_ids()) - set(closeness) - {me.id}
         query = remove_accents((request.query_params.get("q") or "").strip()).lower()
+        candidates = list(
+            models.User.objects.filter(id__in=[*closeness, *open_ids], is_active=True)
+        )
+        emails = emails_seen_by(me, candidates, closeness)
         people = [
             person
-            for person in models.User.objects.filter(
-                id__in=[*closeness, *open_ids], is_active=True
-            )
+            for person in candidates
             if not query
             or query in remove_accents(person.full_name or "").lower()
             or query in (person.email or "").lower()
+            or query in emails[person.id].lower()
         ]
         known = sorted(
             (person for person in people if person.id in closeness),
@@ -258,7 +268,7 @@ class PeopleDirectoryView(APIView):
                 {
                     "id": str(person.id),
                     "full_name": person.full_name or "",
-                    "email": person.email if relation.can_see(profile, "email") else "",
+                    "email": emails[person.id],
                     "headline": profile.headline
                     if relation.can_see(profile, "headline")
                     else "",

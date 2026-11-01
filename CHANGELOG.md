@@ -20,6 +20,7 @@ and this project adheres to
 - ✨(backend) invitations sent within minutes to one person go out as one email
 - ✨(frontend) the link of invitations sent together lists them to accept
 - ✨(frontend) adding someone to a workspace can add them to its spaces too
+- ✨(backend) hover cards and people lists show the address chosen on a profile
 - ✨(docspec) handle DocSpec 4xx/5xx import errors distinctly #2552
 - 🌐(frontend) add Crowdin translator context #2785
 
