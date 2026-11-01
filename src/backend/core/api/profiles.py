@@ -203,6 +203,54 @@ def email_choices(user):
     return addresses
 
 
+def shown_email(owner, profile):
+    """The address the profile shows: the one chosen, else the account's."""
+    return profile.shown_email or owner.email or ""
+
+
+def emails_seen_by(viewer, people, colleague_ids):
+    """
+    The address each person's profile shows the viewer, by id ("" when kept
+    from them), for the lists and cards naming people. `colleague_ids`: the
+    people the viewer shares something with, known already.
+    """
+    profiles = {
+        profile.user_id: profile
+        for profile in models.UserProfile.objects.filter(
+            user_id__in=[person.id for person in people]
+        )
+    }
+    seen = {}
+    for person in people:
+        profile = profiles.get(person.id) or models.UserProfile(user=person)
+        relation = Viewer(person, viewer)
+        # known already: not looked up again for each person
+        relation.is_colleague = relation.is_self or person.id in colleague_ids
+        seen[person.id] = (
+            shown_email(person, profile) if relation.can_see(profile, "email") else ""
+        )
+    return seen
+
+
+def forget_lost_address(user, address):
+    """
+    A sign-in account was removed: a profile showing its address, no longer
+    one of the person's own, shows the account's again.
+    """
+    address = (address or "").lower()
+    profile = models.UserProfile.objects.filter(
+        user=user, shown_email__iexact=address
+    ).first()
+    if (
+        not address
+        or profile is None
+        or address in {email.lower() for email in email_choices(user)}
+    ):
+        return
+    profile.shown_email = ""
+    profile.save(update_fields=["shown_email", "updated_at"])
+
+
 def describe(owner, viewer):
     """The profile as the viewer may see it; None if hidden from them."""
     profile = profile_of(owner)
@@ -219,7 +267,7 @@ def describe(owner, viewer):
         "location": profile.location if shown["location"] else "",
         "bio": profile.bio if shown["bio"] else "",
         "website": profile.website if shown["website"] else "",
-        "email": (profile.shown_email or owner.email or "") if shown["email"] else "",
+        "email": shown_email(owner, profile) if shown["email"] else "",
         "interests": [label.name for label in profile.interests.order_by("key")]
         if shown["interests"]
         else [],

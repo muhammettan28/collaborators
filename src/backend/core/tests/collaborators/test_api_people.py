@@ -181,3 +181,30 @@ def test_group_card_unknown_or_signed_out():
         == 404
     )
     assert APIClient().get(f"/api/v1.0/teams/group:{q4.id}/").status_code == 401
+
+
+def test_people_show_the_address_chosen_on_the_profile():
+    """The card, the pickers and My Collaborators: the profile's address."""
+    me, ada = factories.UserFactory(), factories.UserFactory(full_name="Ada L")
+    acme = models.Workspace.objects.create(name="Acme")
+    for user in (me, ada):
+        models.WorkspaceAccess.objects.create(workspace=acme, user=user)
+    models.SignInIdentity.objects.create(
+        user=ada, provider="google", sub="g-2", account="ada@work.example"
+    )
+    models.UserProfile.objects.create(user=ada, shown_email="ada@work.example")
+    client = APIClient()
+    client.force_login(me)
+
+    card = client.get(f"/api/v1.0/people/{ada.id}/").json()
+    assert card["email"] == "ada@work.example"
+
+    people = client.get("/api/v1.0/people/?q=work.example").json()
+    assert [(person["id"], person["email"]) for person in people] == [
+        (str(ada.id), "ada@work.example")
+    ]
+
+    directory = client.get("/api/v1.0/people/directory/?q=work.example").json()
+    assert [(person["id"], person["email"]) for person in directory] == [
+        (str(ada.id), "ada@work.example")
+    ]
