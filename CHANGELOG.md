@@ -27,6 +27,7 @@ and this project adheres to
 - ♿️(frontend) allow opening the home button in a new tab #2839
 - 💄(frontend) slides: first, back, play, forward and last, 3 s per slide
 - 💄(frontend) a presentation's time bar and slide buttons go below it
+- 💄(frontend) an animation with its time bar waits for Play
 
 ### Fixed
 

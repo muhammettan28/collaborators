@@ -83,7 +83,7 @@ interface PresentationFrameProps {
   aspectRatio?: AspectRatio;
   /** Fill the space given (the full-screen page) instead of keeping a shape */
   fill?: boolean;
-  /** Show the time bar of an animation that can be measured */
+  /** Show the time bar of a measured animation, which then waits for Play */
   timeBar?: boolean;
   /** How long its animation lasts, once measured (0: it can't be) */
   onMeasured?: (seconds: number) => void;
@@ -139,6 +139,8 @@ export const PresentationFrame = forwardRef<
                 data,
                 presentation.source === 'link' ? presentation.link : null,
               ),
+              // with its time bar, it waits for the reader's Play
+              Boolean(timeBar),
             )}
             // scripts run, in a sandbox of their own: no allow-same-origin
             sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"

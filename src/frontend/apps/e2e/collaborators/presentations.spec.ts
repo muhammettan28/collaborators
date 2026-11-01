@@ -551,7 +551,7 @@ test('a presentation with its PDF: slides, its own PDF, kept in step', async ({
   await expect(page.getByRole('tab', { name: 'Slides' })).toBeVisible();
 });
 
-test('an animation gets a time bar when its editor turns it on', async ({
+test('an animation gets a time bar when its editor turns it on, and waits for Play', async ({
   page,
 }) => {
   await signIn(page);
@@ -583,21 +583,23 @@ test('an animation gets a time bar when its editor turns it on', async ({
   await expect(bar.getByText('/ 0:06')).toBeVisible();
   await expectBelow(bar, page.getByTestId('presentation-frame'));
 
-  // paused, then moved to its middle: the animation is there
-  const pause = bar.getByRole('button', { name: 'Pause' });
-  if (await pause.isVisible()) {
-    await pause.click();
-  }
+  // with its time bar, it waits at its start for Play
+  const width = () =>
+    frame(page)
+      .locator('#bar')
+      .evaluate((element) => element.getBoundingClientRect().width);
+  await expect(bar.getByRole('button', { name: 'Play' })).toBeVisible();
+  await page.waitForTimeout(1500);
+  await expect(bar.getByText('0:00 / 0:06')).toBeVisible();
+  expect(await width()).toBe(0);
+
+  // moved to its middle: the animation is there
   // a click in the slider's middle, as a person does (fill() sets the value
   // without the events React listens to)
   const slider = bar.getByRole('slider', { name: 'Time in the animation' });
   const box = (await slider.boundingBox())!;
   await slider.click({ position: { x: box.width / 2, y: box.height / 2 } });
   await expect(bar.getByText(/^0:0[23] \/ 0:06$/)).toBeVisible();
-  const width = () =>
-    frame(page)
-      .locator('#bar')
-      .evaluate((element) => element.getBoundingClientRect().width);
   await expect.poll(width).toBeGreaterThan(260);
   expect(await width()).toBeLessThan(340);
   await bar.getByRole('button', { name: 'Play' }).click();
@@ -632,7 +634,6 @@ test('a script-driven animation moves with its handle, at its own time', async (
   const bar = page.getByTestId('presentation-time-bar');
   await expect(bar.getByText('/ 0:05')).toBeVisible();
 
-  // the bar says where the file is, though its clock started late
   const slider = bar.getByRole('slider', { name: 'Time in the animation' });
   const fileTime = () =>
     frame(page)
@@ -642,6 +643,13 @@ test('a script-driven animation moves with its handle, at its own time', async (
           (window as unknown as { collaboratorsTimeline: { time: number } })
             .collaboratorsTimeline.time,
       );
+  // it waits for Play, though its own (late) clock would have started by now
+  await expect(bar.getByRole('button', { name: 'Play' })).toBeVisible();
+  await page.waitForTimeout(2500);
+  expect(await fileTime()).toBe(0);
+  await bar.getByRole('button', { name: 'Play' }).click();
+  await expect.poll(fileTime).toBeGreaterThan(0.5);
+  // paused, the bar says where the file is
   await bar.getByRole('button', { name: 'Pause' }).click();
   await expect(bar.getByRole('button', { name: 'Play' })).toBeVisible();
   await expect

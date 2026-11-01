@@ -15,14 +15,23 @@ import { Box, Icon, Text } from '@/components';
 // driven by a script (and where it is, when the handle says so); one that
 // can't be measured (endless, or a script without a handle) says 0 seconds,
 // and no time bar is offered.
+//
+// With its time bar, an animation waits at its start for the reader's Play:
+// held, its CSS animations are paused from the first frame (HOLD_STYLE),
+// those a script makes with element.animate() as soon as they are made, and
+// a handle as soon as the file has set it, then again whenever it starts on
+// its own. One that can't be measured is let go: there would be no Play.
 
 export const TIME_MESSAGE = 'collaborators:time';
 
-const HELPER = `(function () {
+const HOLD_STYLE =
+  '<style data-collaborators-hold>*,*::before,*::after{animation-play-state:paused!important}</style>';
+
+const helper = (held: boolean) => `(function () {
   var TYPE = '${TIME_MESSAGE}';
   var starts = typeof WeakMap === 'function' ? new WeakMap() : null;
   // its time counts from when its first animation started
-  var origin = null, offset = 0, since = 0, playing = true, sent = '';
+  var held = ${held}, origin = null, offset = 0, since = 0, playing = !held, sent = '';
   var now = function () { return performance.now(); };
   var handle = function () {
     var h = window.collaboratorsTimeline;
@@ -79,9 +88,29 @@ const HELPER = `(function () {
     offset = seconds;
     since = now();
   };
+  if (held && Element.prototype.animate) {
+    var animate = Element.prototype.animate;
+    Element.prototype.animate = function () {
+      var a = animate.apply(this, arguments);
+      if (held) { a.pause(); }
+      return a;
+    };
+  }
+  // back in place when something started before Play
+  var hold = function () {
+    var h = handle();
+    var running = h ? h.playing === true : animations().some(function (a) { return a.playState === 'running'; });
+    if (running) { playing = false; apply(offset); }
+  };
+  var release = function () {
+    held = false;
+    var style = document.querySelector('style[data-collaborators-hold]');
+    if (style) { style.remove(); }
+  };
   var report = function () {
     var seconds = length();
     var h = handle();
+    if (held && seconds) { hold(); }
     if (h && typeof h.playing === 'boolean') { playing = h.playing; }
     if (seconds && playing && clock() >= seconds) { offset = seconds; playing = false; }
     var time = Math.min(clock(), seconds);
@@ -98,6 +127,7 @@ const HELPER = `(function () {
     if (data.action === 'seek' && isFinite(+data.time)) {
       apply(Math.max(0, Math.min(total, +data.time)));
     } else if (data.action === 'play') {
+      release();
       playing = true;
       apply(at >= total ? 0 : at);
     } else if (data.action === 'pause') {
@@ -107,12 +137,23 @@ const HELPER = `(function () {
     sent = '';
     report();
   });
+  addEventListener('DOMContentLoaded', function () {
+    var h = handle();
+    if (held && h) { h.seek(0); if (h.pause) { h.pause(); } }
+  });
   addEventListener('load', function () {
     setTimeout(function () {
       animations();
       var at = document.timeline ? document.timeline.currentTime || 0 : 0;
       offset = handle() ? at / 1000 : Math.max(0, at - (origin || 0)) / 1000;
       since = now();
+      if (held && length()) {
+        apply(0);
+      } else if (held) {
+        release();
+        playing = true;
+        animations().forEach(function (a) { if (a.playState === 'paused') { a.play(); } });
+      }
       report();
       setInterval(report, 250);
     }, 300);
@@ -123,15 +164,17 @@ const REFERRER_META = '<meta name="referrer" content="no-referrer">';
 
 /**
  * The sealed document (sealedDocument) with the time bar's helper right
- * after its rules, before the file's own scripts.
+ * after its rules, before the file's own scripts; `held`, its animation
+ * waits at its start for Play.
  */
-export const withTimeline = (sealed: string) => {
+export const withTimeline = (sealed: string, held = false) => {
   const at = sealed.indexOf(REFERRER_META);
   if (at === -1) {
     return sealed;
   }
   const end = at + REFERRER_META.length;
-  return `${sealed.slice(0, end)}<script>${HELPER}</script>${sealed.slice(end)}`;
+  const hold = held ? HOLD_STYLE : '';
+  return `${sealed.slice(0, end)}${hold}<script>${helper(held)}</script>${sealed.slice(end)}`;
 };
 
 export interface Timeline {
