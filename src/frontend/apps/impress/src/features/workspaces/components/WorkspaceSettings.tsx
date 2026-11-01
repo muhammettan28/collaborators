@@ -22,6 +22,8 @@ import {
 } from '@/components';
 import { useAuth } from '@/features/auth';
 import { Role } from '@/features/docs/doc-management';
+import { createDocAccess } from '@/features/docs/doc-share/api/useCreateDocAccess';
+import { createDocInvitation } from '@/features/docs/doc-share/api/useCreateDocInvitation';
 import { SearchUserRow } from '@/features/docs/doc-share/components/SearchUserRow';
 import { LogoPicker } from '@/features/invitations/LogoPicker';
 import {
@@ -56,6 +58,7 @@ import {
   WorkspaceVisibility,
 } from '../types';
 
+import { AlsoInSpaces, SpaceChoices, useShareableSpaces } from './AlsoInSpaces';
 import { ConfirmModal } from './ConfirmModal';
 import { JoiningSection } from './JoiningSection';
 import { MoveMembersModal } from './MoveMembersModal';
@@ -303,6 +306,44 @@ const MembersSection = ({ workspace }: { workspace: Workspace }) => {
     canManage,
   );
   const { invite, cancel } = useWorkspaceInvitationMutations(workspace.id);
+  const { toast } = useToastProvider();
+  const shareableSpaces = useShareableSpaces(workspace.id, canManage);
+  const [alsoIn, setAlsoIn] = useState<SpaceChoices>({});
+
+  // Once in the workspace: the spaces chosen too, a role for one picked by
+  // name, an invitation for an email (sent with the workspace's, in one email)
+  const addToSpaces = async (
+    target: { userId: string } | { email: string },
+  ) => {
+    const chosen = Object.entries(alsoIn);
+    setAlsoIn({});
+    if (chosen.length === 0) {
+      return;
+    }
+    const results = await Promise.allSettled(
+      chosen.map(([docId, role]) =>
+        'email' in target
+          ? createDocInvitation({ email: target.email, role, docId })
+          : createDocAccess({ memberId: target.userId, role, docId }),
+      ),
+    );
+    const failed = chosen
+      .filter((_, index) => results[index].status === 'rejected')
+      .map(
+        ([docId]) =>
+          shareableSpaces.find((space) => space.id === docId)?.title ?? '…',
+      );
+    if (failed.length > 0) {
+      toast(
+        t('Added to the workspace, but not to: {{spaces}}', {
+          description:
+            'Toast when adding someone to some of the chosen spaces failed',
+          spaces: failed.join(', '),
+        }),
+        VariantType.ERROR,
+      );
+    }
+  };
 
   const roles = [
     {
@@ -328,13 +369,33 @@ const MembersSection = ({ workspace }: { workspace: Workspace }) => {
       )}
     >
       {canManage && (
+        <AlsoInSpaces
+          spaces={shareableSpaces}
+          value={alsoIn}
+          onChange={setAlsoIn}
+        />
+      )}
+      {canManage && (
         <UserPicker
           label={t('Add a collaborator by name or email', {
             description: 'Label of the search adding a workspace member',
           })}
           excludeIds={accesses.map((access) => access.user.id)}
-          onPick={(picked) => add.mutate({ userId: picked.id }, { onError })}
-          onInviteEmail={(email) => invite.mutate({ email }, { onError })}
+          onPick={(picked) =>
+            add.mutate(
+              { userId: picked.id },
+              {
+                onError,
+                onSuccess: () => void addToSpaces({ userId: picked.id }),
+              },
+            )
+          }
+          onInviteEmail={(email) =>
+            invite.mutate(
+              { email },
+              { onError, onSuccess: () => void addToSpaces({ email }) },
+            )
+          }
         />
       )}
       {canManage && invitations.length > 0 && (

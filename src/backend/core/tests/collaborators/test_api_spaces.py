@@ -203,6 +203,38 @@ def test_api_spaces_list_per_workspace_only_readable_ones():
     assert [s["title"] for s in client.get(url).json()] == ["Open", "Private"]
 
 
+def test_api_spaces_list_per_workspace_says_what_members_get():
+    """
+    Each space of a workspace's list says the role all its members have on
+    it (to invite someone to it only for more), none when only invited.
+    """
+    owner = factories.UserFactory()
+    workspace = make_workspace(owner)
+    client = client_for(owner)
+    for title, visibility in [("Open", "workspace"), ("Private", "invited")]:
+        client.post(
+            "/api/v1.0/spaces/",
+            {
+                "title": title,
+                "workspace_id": str(workspace.id),
+                "visibility": visibility,
+            },
+            format="json",
+        )
+    space = models.Document.objects.get(title="Open")
+    models.DocumentAccess.objects.filter(
+        document=space, team=f"workspace:{workspace.id}"
+    ).update(role=RoleChoices.EDITOR)
+
+    listed = client.get(f"/api/v1.0/spaces/?workspace={workspace.id}").json()
+    assert [(s["title"], s["members_role"]) for s in listed] == [
+        ("Open", "editor"),
+        ("Private", None),
+    ]
+    # Not about any workspace elsewhere
+    assert client.get(f"/api/v1.0/spaces/{space.id}/").json()["members_role"] is None
+
+
 def test_api_spaces_list_hidden_from_non_members():
     """Listing the spaces of a workspace needs to belong to it."""
     owner, outsider = factories.UserFactory.create_batch(2)
