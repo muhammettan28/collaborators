@@ -426,3 +426,63 @@ export const useUpdatePlatformSettings = () => {
       queryClient.setQueryData([KEY_PLATFORM_SETTINGS], data),
   });
 };
+
+/** A workspace, space or page anywhere on the platform, for its owners. */
+export interface PlatformPlace {
+  kind: 'workspace' | 'space' | 'page';
+  id: string;
+  name: string;
+  /** The space a page is in */
+  inside?: string;
+}
+
+export const KEY_PLATFORM_PLACES = 'platform-places';
+
+/** Up to twenty workspaces, spaces and pages each, found by name. */
+export const usePlatformPlaces = (q: string) =>
+  useQuery<PlatformPlace[], APIError>({
+    queryKey: [KEY_PLATFORM_PLACES, q],
+    queryFn: async () => {
+      const response = await fetchAPI(
+        `platform/places/?${new URLSearchParams({ q }).toString()}`,
+      );
+      if (!response.ok) {
+        throw new APIError(
+          'Failed to find the places',
+          await errorCauses(response),
+        );
+      }
+      return response.json() as Promise<PlatformPlace[]>;
+    },
+  });
+
+/** What adding someone to a place did. */
+export type PlacementResult = 'added' | 'raised' | 'already';
+
+export interface PlacementOutcome {
+  /** The person's id */
+  id: string;
+  places: (PlatformPlace & { role: string; result: PlacementResult })[];
+}
+
+export interface Placement {
+  people: string[];
+  places: { kind: PlatformPlace['kind']; id: string; role: string }[];
+  /** Tell them by email */
+  notify: boolean;
+}
+
+/** Platform owners add people to places, apart from invitations. */
+export const useAddToPlaces = () =>
+  useMutation<PlacementOutcome[], APIError, Placement>({
+    mutationFn: async (body) => {
+      const response = await fetchAPI('platform/add-to-places/', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        throw new APIError('Nobody was added', await errorCauses(response));
+      }
+      return response.json() as Promise<PlacementOutcome[]>;
+    },
+  });

@@ -220,6 +220,8 @@ urlpatterns = [
                 ),
                 path("platform/settings/", platform.PlatformSettingsView.as_view()),
                 path("platform/blocked/", platform.BlockedEmailListView.as_view()),
+                path("platform/places/", platform.PlacesView.as_view()),
+                path("platform/add-to-places/", platform.AddToPlacesView.as_view()),
                 path(
                     "platform/blocked/<uuid:blocked_id>/",
                     platform.BlockedEmailView.as_view(),

@@ -221,6 +221,7 @@ class PlatformLogActionChoices(TextChoices):
     PUT_BACK = "put_back", _("Page put back")
     SETTINGS_CHANGED = "settings_changed", _("Platform settings changed")
     MERGED = "merged", _("Accounts merged")
+    ADDED_TO_PLACES = "added_to_places", _("Added to places")
 
 
 class ReportReasonChoices(TextChoices):

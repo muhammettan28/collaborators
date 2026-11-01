@@ -7,12 +7,13 @@ import { Box } from '@/components';
 import { PlatformRole, hasPlatformLevel, useAuth } from '@/features/auth';
 import { PeopleDirectory } from '@/features/people/PeopleDirectory';
 
+import { AddToPlaces } from './AddToPlaces';
 import { BlockedEmails } from './BlockedEmails';
 import { ManageCollaborators } from './ManageCollaborators';
 import { PlatformSettings } from './PlatformSettings';
 import { Reports } from './Reports';
 
-type Tab = 'mine' | 'manage' | 'reports' | 'blocked' | 'settings';
+type Tab = 'mine' | 'manage' | 'reports' | 'places' | 'blocked' | 'settings';
 
 interface TabItem {
   id: Tab;
@@ -27,7 +28,8 @@ interface TabItem {
  * logo; the tabs are plain words). Platform managers and the levels above
  * them also find "Manage" there: everyone on the platform
  * (administrators and owners suspend and remove accounts there);
- * administrators and owners find "Reports"; owners "Blocked accounts" and
+ * administrators and owners find "Reports"; owners "Add to places" (people
+ * put straight into workspaces, spaces and pages), "Blocked accounts" and
  * "Settings". `?tab=` opens one (a report's notification opens Reports).
  */
 export const CollaboratorsTabs = () => {
@@ -59,6 +61,15 @@ export const CollaboratorsTabs = () => {
         description: 'Tab of the reported pages, for platform administrators',
       }),
       screen: <Reports />,
+    },
+    {
+      id: 'places',
+      level: 'owner',
+      label: t('Add to places', {
+        description:
+          'Tab adding people to workspaces, spaces and pages, for platform owners',
+      }),
+      screen: <AddToPlaces />,
     },
     {
       id: 'blocked',

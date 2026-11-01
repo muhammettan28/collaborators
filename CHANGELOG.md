@@ -8,6 +8,7 @@ and this project adheres to
 
 ### Added
 
+- ✨(collaborators) platform owners add people straight to any place, by email
 - ✨(frontend) a presentation block: HTML slides readers click through
 - ✨(backend) presentations stored within a per-person limit, or linked
 - ✨(renderer) PDFs of presentations, with a dated page after the cover
