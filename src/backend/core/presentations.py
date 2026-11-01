@@ -26,10 +26,16 @@ with it; the block also shows it page by page ("Slides"). When there is
 none, or it was made for an earlier file, the presentation renderer
 (src/presentation-renderer) photographs the slides instead.
 
+An assistant publishes a presentation at the end of a page, or launches a
+new page with it at its top: a page of one's own, or in a space (or under a
+page) one edits.
+
 core.presentation_guide tells AI assistants (and people, from the block)
 how to make files that work best here; checks_of() says what a presentation
 misses of it.
 """
+
+# pylint: disable=too-many-lines
 
 import base64
 import hashlib
@@ -59,6 +65,7 @@ from core.presentation_guide import checks
 from core.services.converter_services import YdocConverter
 from core.services.jwt_services import Audiences, JWTService
 from core.services.yhub_services import YHubService
+from core.utils.treebeard import create_tree_node_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -690,19 +697,69 @@ def add_to_page(user, presentation):
     """
     document = presentation.document
     current = YHubService().get_ydoc(document)
-    update = YdocConverter().append_blocks(
-        current,
-        [
-            {
-                "type": "presentation",
-                "props": {
-                    "presentationId": str(presentation.pk),
-                    "title": presentation.title,
-                },
-            }
-        ],
-    )
+    update = YdocConverter().append_blocks(current, [_block(presentation)])
     YHubService(user=user).append_ydoc(document, update)
+
+
+def _block(presentation):
+    """Its block in a page, as BlockNote's JSON."""
+    return {
+        "type": "presentation",
+        "props": {
+            "presentationId": str(presentation.pk),
+            "title": presentation.title,
+        },
+    }
+
+
+def new_page(user, title, parent=None, workspace=None):
+    """
+    A new page for a presentation: of the person's own (they own it), placed
+    straight in a workspace they belong to (its members read it, its
+    administrators manage it, as moving a page there does: core.api.
+    page_links), or in a space or under a page where they may create pages.
+    """
+    title = (title or "").strip()[:255]
+    if parent is None:
+        document = create_tree_node_with_retry(
+            lambda: models.Document.add_root(creator=user, title=title)
+        )
+        models.DocumentAccess.objects.create(
+            document=document, user=user, role=models.RoleChoices.OWNER
+        )
+        if workspace is not None:
+            if workspace.get_role(user) is None:
+                raise PresentationError(_("You are not a member of this workspace."))
+            models.SpaceWorkspaceLink.objects.create(
+                space=document, workspace=workspace, is_home=True
+            )
+            models.DocumentAccess.objects.create(
+                document=document,
+                team=models.make_team(models.TEAM_WORKSPACE_ADMINS, workspace.id),
+                role=models.RoleChoices.OWNER,
+            )
+            models.DocumentAccess.objects.create(
+                document=document,
+                team=models.make_team(models.TEAM_WORKSPACE, workspace.id),
+                role=models.RoleChoices.READER,
+            )
+        return document
+    if not page_is_open(parent) or not parent.get_abilities(user).get(
+        "children_create"
+    ):
+        raise PresentationError(_("You can't create pages there."))
+    return create_tree_node_with_retry(
+        lambda: parent.add_child(creator=user, title=title)
+    )
+
+
+def start_page(user, presentation):
+    """
+    Its new page's content, the presentation alone at its top, credited to
+    the person in the page's history.
+    """
+    update = YdocConverter().append_blocks(b"", [_block(presentation)])
+    YHubService(user=user).create_ydoc(presentation.document, update)
 
 
 # One-time upload addresses: an assistant sending a big file (a Claude Design

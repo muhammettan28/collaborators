@@ -22,6 +22,7 @@ and this project adheres to
 - ✨(frontend) the link of invitations sent together lists them to accept
 - ✨(frontend) adding someone to a workspace can add them to its spaces too
 - ✨(backend) hover cards and people lists show the address chosen on a profile
+- ✨(backend) AI assistants launch a page with a presentation on top, shared
 - ✨(docspec) handle DocSpec 4xx/5xx import errors distinctly #2552
 - 🌐(frontend) add Crowdin translator context #2785
 

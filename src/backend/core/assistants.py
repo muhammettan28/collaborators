@@ -64,6 +64,7 @@ def editable_pages(user, query="", limit=20):
                 {
                     "id": str(document.pk),
                     "title": document.title or _("Untitled page"),
+                    "kind": document.kind,
                     "url": page_url(document),
                     "updated_at": document.updated_at.isoformat(),
                 }
@@ -71,6 +72,26 @@ def editable_pages(user, query="", limit=20):
         if len(pages) >= limit:
             break
     return pages
+
+
+def workspaces_of(user, query="", limit=20):
+    """
+    The workspaces the person belongs to, found by name: where their
+    assistant may launch a page (core.presentations.new_page).
+    """
+    workspaces = models.Workspace.objects.filter(accesses__user=user)
+    query = (query or "").strip()
+    if query:
+        workspaces = workspaces.filter(name__icontains=query)
+    return [
+        {
+            "id": str(workspace.pk),
+            "title": workspace.name,
+            "kind": "workspace",
+            "url": f"{settings.EMAIL_URL_APP or ''}/workspace/{workspace.pk}/",
+        }
+        for workspace in workspaces.order_by("name")[:limit]
+    ]
 
 
 def toggle_title(user, assistant, when=None):

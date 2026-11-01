@@ -204,6 +204,7 @@ def test_initialize_and_tools():
         "find_pages",
         "add_input_to_page",
         "publish_presentation",
+        "create_presentation_page",
         "replace_presentation",
         "list_presentations",
         "presentation_guide",

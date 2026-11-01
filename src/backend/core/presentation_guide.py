@@ -24,8 +24,9 @@ download its PDF. Follow these rules so that both work at their best.
 ## 1. Send its PDF with it
 
 Make a PDF of the same presentation at the same time, and send both
-together (publish_presentation or replace_presentation: `pdf_base64` or
-`pdf_link`, or `-F pdf=@deck.pdf` with the upload address). Replace both
+together (publish_presentation, create_presentation_page or
+replace_presentation: `pdf_base64` or `pdf_link`, or `-F pdf=@deck.pdf` with
+the upload address). Replace both
 together too. "Export to PDF" then gives your PDF, and the block shows it
 page by page in its "Slides" tab. Without one, the slides are
 photographed instead: the text becomes pictures. An animation's PDF holds
