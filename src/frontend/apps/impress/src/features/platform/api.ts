@@ -365,19 +365,26 @@ export const useDecideReport = () => {
 };
 
 /** A setting platform owners change, beside the server's own. */
-export interface PlatformSetting {
-  value: boolean;
-  server_default: boolean;
+export interface PlatformSetting<T = boolean> {
+  value: T;
+  server_default: T;
   /** Changed here; else it follows the server */
   set_here: boolean;
 }
 
 export type PlatformSettingName = 'signup_approval' | 'email_invitations';
 
+/** The settings that are numbers: presentations each person stores, versions kept */
+export type PlatformNumberSettingName =
+  'presentation_storage_mb' | 'presentation_versions';
+
+export type PlatformSettings = Record<PlatformSettingName, PlatformSetting> &
+  Record<PlatformNumberSettingName, PlatformSetting<number>>;
+
 export const KEY_PLATFORM_SETTINGS = 'platform-settings';
 
 export const usePlatformSettings = () =>
-  useQuery<Record<PlatformSettingName, PlatformSetting>, APIError>({
+  useQuery<PlatformSettings, APIError>({
     queryKey: [KEY_PLATFORM_SETTINGS],
     queryFn: async () => {
       const response = await fetchAPI('platform/settings/');
@@ -387,9 +394,7 @@ export const usePlatformSettings = () =>
           await errorCauses(response),
         );
       }
-      return response.json() as Promise<
-        Record<PlatformSettingName, PlatformSetting>
-      >;
+      return response.json() as Promise<PlatformSettings>;
     },
   });
 
@@ -397,9 +402,12 @@ export const usePlatformSettings = () =>
 export const useUpdatePlatformSettings = () => {
   const queryClient = useQueryClient();
   return useMutation<
-    Record<PlatformSettingName, PlatformSetting>,
+    PlatformSettings,
     APIError,
-    Partial<Record<PlatformSettingName, boolean | null>>
+    Partial<
+      Record<PlatformSettingName, boolean | null> &
+        Record<PlatformNumberSettingName, number | null>
+    >
   >({
     mutationFn: async (body) => {
       const response = await fetchAPI('platform/settings/', {
@@ -412,9 +420,7 @@ export const useUpdatePlatformSettings = () => {
           await errorCauses(response),
         );
       }
-      return response.json() as Promise<
-        Record<PlatformSettingName, PlatformSetting>
-      >;
+      return response.json() as Promise<PlatformSettings>;
     },
     onSuccess: (data) =>
       queryClient.setQueryData([KEY_PLATFORM_SETTINGS], data),

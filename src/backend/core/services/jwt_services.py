@@ -37,6 +37,8 @@ class Audiences(StrEnum):
 
     Y_CONVERTER = "y-converter"
     YHUB = "yhub"
+    # Collaborators: the service making PDFs of presentations
+    PRESENTATION_RENDERER = "presentation-renderer"
 
 
 class JWTError(Exception):

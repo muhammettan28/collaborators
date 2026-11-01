@@ -210,6 +210,18 @@ services:
       - /home/frontend/node_modules
       - /home/frontend/servers/y-provider/node_modules
 
+  # Collaborators: PDFs of the HTML presentations shown in pages
+  presentation-renderer:
+    user: ${DOCKER_USER:-1000}
+    build:
+      context: .
+      dockerfile: ./src/presentation-renderer/Dockerfile
+      target: presentation-renderer
+    image: impress:presentation-renderer
+    restart: unless-stopped
+    environment:
+      JWKS_URL: http://app-dev:8000/api/v1.0/jwks
+
   yhub-valkey:
     image: valkey/valkey:alpine
     # volatile-lru per yhub DEPLOYMENT.md; AOF because valkey is the authoritative store

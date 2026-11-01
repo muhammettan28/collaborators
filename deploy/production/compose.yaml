@@ -132,6 +132,7 @@ services:
     environment:
       DJANGO_CONFIGURATION: Production
       WEB_CONCURRENCY: "3"
+      PRESENTATION_RENDERER_URL: http://presentation-renderer:3010
     volumes:
       - ./keys/private.pem:/keys/private.pem:ro
     healthcheck:
@@ -200,6 +201,24 @@ services:
     image: collaborators/y-provider:latest
     user: "1000"
     mem_limit: 512m
+
+  # PDFs of the HTML presentations shown in pages ("Export to PDF"): a
+  # browser steps through the slides; called by the backend only
+  presentation-renderer:
+    restart: unless-stopped
+    build:
+      context: ../..
+      dockerfile: src/presentation-renderer/Dockerfile
+      target: presentation-renderer
+    image: collaborators/presentation-renderer:latest
+    user: "1000"
+    environment:
+      # the backend's public keys, as the converter reads them
+      JWKS_URL: "https://${APP_HOST:-collaborators.community}/api/v1.0/jwks"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    mem_limit: 1g
 
   # Reads Word and other files imported into pages
   docspec:

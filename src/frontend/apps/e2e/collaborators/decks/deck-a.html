@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>E2E deck A</title>
+<style>
+  html,body{margin:0;height:100%;font:48px/1.3 system-ui,sans-serif}
+  .s{display:none;height:100vh;align-items:center;justify-content:center;flex-direction:column;color:#fff}
+  .s.on{display:flex}
+  #probe{font-size:14px;margin-top:20px}
+</style></head><body>
+<div class="s on" style="background:#123">A · Slide 1<div id="probe">probing</div></div>
+<div class="s" style="background:#264">A · Slide 2</div>
+<div class="s" style="background:#842">A · Slide 3</div>
+<script>
+  var i=0,s=document.querySelectorAll('.s');
+  function go(d){var n=Math.max(0,Math.min(s.length-1,i+d));if(n===i)return;s[i].classList.remove('on');i=n;s[i].classList.add('on')}
+  addEventListener('keydown',function(e){if(e.key==='ArrowRight')go(1);if(e.key==='ArrowLeft')go(-1)});
+  addEventListener('click',function(){go(1)});
+  var r=[];
+  try{r.push('parent:'+(parent.document?'READABLE':'no'))}catch(e){r.push('parent:blocked')}
+  try{r.push('cookie:'+(document.cookie?'READABLE':'empty'))}catch(e){r.push('cookie:blocked')}
+  try{localStorage.setItem('x','1');r.push('storage:open')}catch(e){r.push('storage:blocked')}
+  fetch('http://localhost:8071/api/v1.0/users/me/',{credentials:'include'}).then(function(){r.push('api:REACHED')},function(){r.push('api:blocked')}).then(function(){document.getElementById('probe').textContent=r.join(' ')});
+</script></body></html>

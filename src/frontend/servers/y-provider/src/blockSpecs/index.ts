@@ -10,6 +10,7 @@ import { InterlinkingLinkInline } from './InterlinkingLinkInline';
 import { LoopTableBlock } from './LoopTable';
 import { MentionInline } from './Mention';
 import { PdfBlock } from './Pdf';
+import { PresentationBlock } from './Presentation';
 import { UploadLoaderBlock } from './UploadLoader';
 
 // Must stay in sync with the frontend schema (BlockNoteEditor.tsx) so Yjs
@@ -21,6 +22,7 @@ export const docsBlockNoteSchema = withPageBreak(
       callout: CalloutBlock(),
       loopTable: LoopTableBlock(),
       pdf: PdfBlock(),
+      presentation: PresentationBlock(),
       uploadLoader: UploadLoaderBlock(),
     },
     inlineContentSpecs: {

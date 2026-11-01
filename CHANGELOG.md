@@ -8,6 +8,14 @@ and this project adheres to
 
 ### Added
 
+- ✨(frontend) a presentation block: HTML slides readers click through
+- ✨(backend) presentations stored within a per-person limit, or linked
+- ✨(renderer) PDFs of presentations, with a dated page after the cover
+- ✨(backend) AI assistants publish and replace presentations (MCP)
+- ✅(e2e) a browser test of presentations, apart from the upstream suite
+- ✨(backend) a presentation's PDF twin, sent and replaced with its HTML
+- ✨(frontend) presentations: Motion and Slides tabs, a time bar for animations
+- ✨(backend) a guide for AIs making presentations, and checks of each file
 - ✨(docspec) handle DocSpec 4xx/5xx import errors distinctly #2552
 - 🌐(frontend) add Crowdin translator context #2785
 
@@ -17,11 +25,16 @@ and this project adheres to
 - 💄(frontend) update upload loader and error ui #2778
 - ⬆️(yhub) upgrade @y/hub to 0.10.1 #2853
 - ♿️(frontend) allow opening the home button in a new tab #2839
+- 💄(frontend) slides: first, back, play, forward and last, 3 s per slide
+- 💄(frontend) a presentation's time bar and slide buttons go below it
 
 ### Fixed
 
 - 🔒️(backend) bind comment thread to the path document on creation #2838
 - 🐛(backend) one inbox entry per person when several groups mention them
+- 🐛(frontend) the time bar follows a script animation's own clock
+- 🐛(frontend) the Slides tab keeps the slide shown while its PDF loads
+- 💄(frontend) a click in a presentation no longer tints the whole block
 
 ## [v6.0.1] - 2026-10-15
 

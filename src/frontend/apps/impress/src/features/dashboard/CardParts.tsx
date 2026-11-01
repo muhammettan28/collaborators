@@ -46,11 +46,12 @@ export const Row = ({
   <StyledLink href={href} $css={rowCss} onClick={onClick}>
     <Icon iconName={icon} $size={CARD_ICON_SIZE} $variation="secondary" />
     <Box $flex={1} $css="min-width: 0;">
-      <Text $size="sm" $weight="500" $ellipsis>
+      {/* Collaborators: block, as a flex box cuts a long title without "…" */}
+      <Text $size="sm" $weight="500" $display="block" $ellipsis>
         {title}
       </Text>
       {detail && (
-        <Text $size="xs" $variation="secondary" $ellipsis>
+        <Text $size="xs" $variation="secondary" $display="block" $ellipsis>
           {detail}
         </Text>
       )}

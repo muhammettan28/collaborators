@@ -292,7 +292,7 @@ export const Footer = () => {
             $css={`
             flex-wrap: wrap;
             column-gap: 1rem;
-            row-gap: .5rem;
+            row-gap: ${isMobile ? '0' : '.5rem'};
           `}
             className="--docs--footer-internal-links"
           >
@@ -304,7 +304,11 @@ export const Footer = () => {
                   // The dividers would dangle where a phone wraps the row
                   $css={
                     isMobile
-                      ? undefined
+                      ? // Collaborators: tall enough to tap with a thumb
+                        css`
+                          min-height: 32px;
+                          align-items: center;
+                        `
                       : css`
                           padding-right: 1rem;
                           &:not(:last-child) {

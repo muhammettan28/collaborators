@@ -3778,6 +3778,8 @@ class PlatformSettings(BaseModel):
 
     signup_approval = models.BooleanField(null=True, blank=True)
     email_invitations = models.BooleanField(null=True, blank=True)
+    presentation_storage_mb = models.PositiveIntegerField(null=True, blank=True)
+    presentation_versions = models.PositiveIntegerField(null=True, blank=True)
     updated_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -3899,3 +3901,118 @@ class ItemLogo(BaseModel):
 
     def __str__(self):
         return f"Logo of {self.workspace or self.document}"
+
+
+class Presentation(BaseModel):
+    """
+    Collaborators: an HTML presentation shown in a page by its "presentation"
+    block (core.presentations). Either stored here, as versions (the current
+    one shown), or a link to an HTML file hosted elsewhere, fetched when it is
+    shown. Whoever reads the page sees it; whoever edits the page changes it.
+    """
+
+    document = models.ForeignKey(
+        Document, on_delete=models.CASCADE, related_name="presentations"
+    )
+    title = models.CharField(max_length=255, blank=True)
+    # An HTML file hosted elsewhere; empty for a presentation stored here
+    link_url = models.URLField(max_length=2000, blank=True)
+    # The fingerprint (sha256) of the linked file when last fetched
+    link_sha256 = models.CharField(max_length=64, blank=True)
+    current = models.ForeignKey(
+        "PresentationVersion",
+        on_delete=models.SET_NULL,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "collaborators_presentation"
+        verbose_name = _("Presentation")
+        verbose_name_plural = _("Presentations")
+
+    def __str__(self):
+        return self.title or str(self.pk)
+
+
+class PresentationVersion(BaseModel):
+    """
+    One stored file of a presentation. It counts against the storage of
+    whoever uploaded it; the oldest beyond the platform's number of versions
+    go, with their file.
+    """
+
+    presentation = models.ForeignKey(
+        Presentation, on_delete=models.CASCADE, related_name="versions"
+    )
+    file_key = models.CharField(max_length=255)
+    size = models.PositiveIntegerField()
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="presentation_uploads",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "collaborators_presentation_version"
+        verbose_name = _("Presentation version")
+        verbose_name_plural = _("Presentation versions")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.presentation} ({self.created_at:%Y-%m-%d %H:%M})"
+
+
+class PresentationPdf(BaseModel):
+    """
+    The PDF made with a presentation, its twin: what "Export to PDF" gives,
+    and what the block's "Slides" tab shows page by page. That of a stored
+    version goes with it (replaced, restored and removed together); a linked
+    presentation has one of its own, made for the HTML at its link when it
+    was added (a fingerprint tells when that file changed since). Stored
+    here, counting against whoever uploaded it, or a link to one elsewhere.
+    """
+
+    presentation = models.ForeignKey(
+        Presentation, on_delete=models.CASCADE, related_name="pdfs"
+    )
+    # The stored version it goes with; none for a linked presentation's
+    version = models.OneToOneField(
+        PresentationVersion,
+        on_delete=models.CASCADE,
+        related_name="pdf",
+        null=True,
+        blank=True,
+    )
+    file_key = models.CharField(max_length=255, blank=True)
+    link_url = models.URLField(max_length=2000, blank=True)
+    size = models.PositiveIntegerField(default=0)
+    pages = models.PositiveIntegerField(null=True, blank=True)
+    # The fingerprint (sha256) of the HTML it was made for, when linked
+    html_sha256 = models.CharField(max_length=64, blank=True)
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="presentation_pdf_uploads",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "collaborators_presentation_pdf"
+        verbose_name = _("Presentation PDF")
+        verbose_name_plural = _("Presentation PDFs")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"PDF of {self.presentation}"

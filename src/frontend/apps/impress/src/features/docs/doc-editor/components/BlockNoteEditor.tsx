@@ -72,7 +72,13 @@ import { BlockMotion } from './BlockMotion/BlockMotion';
 import { BlockNoteSuggestionMenu } from './BlockNoteSuggestionMenu';
 import { BlockNoteToolbar } from './BlockNoteToolBar/BlockNoteToolbar';
 import { DocsSideMenu } from './DocsSideMenu/DocsSideMenu';
-import { CalloutBlock, PdfBlock, UploadLoaderBlock } from './custom-blocks';
+import {
+  CalloutBlock,
+  PdfBlock,
+  PresentationBlock,
+  UploadLoaderBlock,
+  presentationIdFromUrl,
+} from './custom-blocks';
 const AIMenu = BlockNoteAI?.AIMenu;
 const AIMenuController = BlockNoteAI?.AIMenuController;
 const useAI = BlockNoteAI?.useAI;
@@ -108,6 +114,7 @@ const baseBlockNoteSchema = withPageBreak(
       diagram: createReactDiagramBlockSpec(),
       mathBlock: createReactMathBlockSpec(),
       pdf: PdfBlock(),
+      presentation: PresentationBlock(),
       uploadLoader: UploadLoaderBlock(),
     },
     inlineContentSpecs: {
@@ -318,6 +325,24 @@ export const BlockNoteEditor = ({ doc, provider }: BlockNoteEditorProps) => {
               },
             },
           ]);
+          return true;
+        }
+
+        /**
+         * Collaborators: pasting the address of a presentation of this site
+         * shows the presentation there (its block, not a link).
+         */
+        const presentationId = presentationIdFromUrl(
+          event.clipboardData?.getData('text/plain') ?? '',
+          window.location.origin,
+        );
+        if (presentationId) {
+          const cursor = pasteEditor.getTextCursorPosition().block;
+          pasteEditor.insertBlocks(
+            [{ type: 'presentation', props: { presentationId } }],
+            cursor,
+            'after',
+          );
           return true;
         }
 

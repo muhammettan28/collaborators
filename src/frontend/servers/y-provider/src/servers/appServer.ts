@@ -2,7 +2,11 @@ import * as Sentry from '@sentry/node';
 import express from 'express';
 
 import { CONVERSION_FILE_MAX_SIZE } from '@/env';
-import { appendToggleHandler, convertHandler } from '@/handlers';
+import {
+  appendBlocksHandler,
+  appendToggleHandler,
+  convertHandler,
+} from '@/handlers';
 import { corsMiddleware, httpSecurity } from '@/middlewares';
 import { routes } from '@/routes';
 import { logger } from '@/utils';
@@ -38,6 +42,16 @@ export const initApp = () => {
     httpSecurity,
     express.json({ limit: CONVERSION_FILE_MAX_SIZE }),
     appendToggleHandler,
+  );
+
+  /**
+   * Collaborators: the update adding blocks at the end of a page
+   */
+  app.post(
+    routes.APPEND_BLOCKS,
+    httpSecurity,
+    express.json({ limit: CONVERSION_FILE_MAX_SIZE }),
+    appendBlocksHandler,
   );
 
   Sentry.setupExpressErrorHandler(app);

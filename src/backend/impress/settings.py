@@ -496,6 +496,12 @@ class Base(Configuration):
                 environ_name="API_CONFIG_THROTTLE_RATE",
                 environ_prefix=None,
             ),
+            # Collaborators: PDFs of presentations, each made by a browser
+            "presentation_pdf": values.Value(
+                default="6/minute",
+                environ_name="API_PRESENTATION_PDF_THROTTLE_RATE",
+                environ_prefix=None,
+            ),
         },
     }
     MONITORED_THROTTLE_FAILURE_CALLBACK = (
@@ -837,6 +843,34 @@ class Base(Configuration):
     # each other by name, unless one lets everyone find them (their profile)
     COLLABORATORS_PEOPLE_PRIVACY = values.BooleanValue(
         True, environ_name="COLLABORATORS_PEOPLE_PRIVACY", environ_prefix=None
+    )
+    # HTML presentations shown in pages (core.presentations): what each
+    # person may store here, in MB, and how many versions of each are kept
+    # (platform owners change both in the app)
+    COLLABORATORS_PRESENTATION_STORAGE_MB = values.PositiveIntegerValue(
+        25, environ_name="COLLABORATORS_PRESENTATION_STORAGE_MB", environ_prefix=None
+    )
+    COLLABORATORS_PRESENTATION_VERSIONS = values.PositiveIntegerValue(
+        5, environ_name="COLLABORATORS_PRESENTATION_VERSIONS", environ_prefix=None
+    )
+    # The largest presentation, stored here or fetched from elsewhere
+    COLLABORATORS_PRESENTATION_MAX_BYTES = values.PositiveIntegerValue(
+        10 * MB,
+        environ_name="COLLABORATORS_PRESENTATION_MAX_BYTES",
+        environ_prefix=None,
+    )
+    # The largest PDF made to go with a presentation, stored or linked
+    COLLABORATORS_PRESENTATION_PDF_MAX_BYTES = values.PositiveIntegerValue(
+        20 * MB,
+        environ_name="COLLABORATORS_PRESENTATION_PDF_MAX_BYTES",
+        environ_prefix=None,
+    )
+    # The service making PDFs of presentations (src/presentation-renderer)
+    PRESENTATION_RENDERER_URL = values.Value(
+        "", environ_name="PRESENTATION_RENDERER_URL", environ_prefix=None
+    )
+    PRESENTATION_RENDERER_TIMEOUT = values.PositiveIntegerValue(
+        120, environ_name="PRESENTATION_RENDERER_TIMEOUT", environ_prefix=None
     )
     # Wikis at <workspace>.<this domain>/<wiki>, e.g. acme.collaborators.community
     COLLABORATORS_WIKI_BASE_DOMAIN = values.Value(
