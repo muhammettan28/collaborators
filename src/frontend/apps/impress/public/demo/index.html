@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Collaborators Product Demo</title>
+<title>Collaborators Presentations Demo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..800;1,14..32,700..800&display=swap">
@@ -14,7 +14,7 @@
   --ink:#1D1B2C; --ink-2:#4A485D; --ink-3:#86849A;
   --line:#E6E5EE; --line-2:#F0EFF5;
   --bg:#F5F5F9; --surface:#FFFFFF; --soft:#FAFAFC;
-  --ada:#5B4CD6; --alan:#0E8A7D; --grace:#DB5D36;
+  --ada:#5B4CD6; --alan:#0E8A7D; --grace:#DB5D36; --u1:#2F78B7; --u2:#B23F7E; --u3:#6D7F1A;
   --ok:#1B7A4F; --ok-bg:#E2F3E9; --wip:#94590A; --wip-bg:#FFF0D4; --plan:#3456B5; --plan-bg:#E7EDFB;
   --font:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji";
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
@@ -165,7 +165,7 @@ tr:last-child td{border-bottom:0}
 .cur .ring{position:absolute;left:-16px;top:-16px;width:32px;height:32px;border-radius:50%;border:2.5px solid var(--c);opacity:0}
 
 /* ---------- Assistant chat ---------- */
-#chat{position:absolute;right:44px;top:118px;width:600px;height:844px;background:var(--surface);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;opacity:0;
+#chat,#chat2{position:absolute;right:44px;top:118px;width:600px;height:844px;background:var(--surface);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;opacity:0;
   box-shadow:0 0 0 1px rgba(29,27,44,.07),0 36px 80px -20px rgba(29,27,44,.32)}
 .chat-head{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line)}
 .ai-badge{font-weight:700;font-size:17px;padding:5px 15px;border-radius:999px;background:#F1F0F5;border:1px solid var(--line);color:var(--ink)}
@@ -224,6 +224,84 @@ tr:last-child td{border-bottom:0}
 .url-big{font-size:44px;font-weight:600;color:var(--brand);letter-spacing:-.015em;margin-top:44px}
 .gh{display:flex;align-items:center;gap:12px;margin-top:22px;font-size:24px;color:var(--ink-2);font-weight:500;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:10px 24px 10px 18px}
 .gh svg.i{width:24px;height:24px;color:var(--ink)}
+
+/* ---------- Second workspace in the sidebar ---------- */
+.ws-head.ws2{margin-top:10px;border-radius:8px}
+.ws-logo.n{background:var(--brand)}
+.pg.fresh{box-shadow:inset 0 0 0 1.5px var(--brand-200)}
+/* an avatar keeps its centred white initials inside rows whose spans are blocks */
+.side-foot .av,.sp-row .av,.sp-row .ws-logo,.ms .who .av{display:grid;color:#fff}
+.av.u1{background:var(--u1)}.av.u2{background:var(--u2)}.av.u3{background:var(--u3)}
+.presence.b .av{transform-origin:50% 50%}
+
+/* ---------- Assistant chat: files it made ---------- */
+.files{display:flex;gap:10px;opacity:0}
+.file{display:inline-flex;align-items:center;gap:9px;padding:8px 13px 8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:15px;font-weight:600;color:var(--ink)}
+.file svg.i{width:18px;height:18px;color:var(--brand)}
+.file em{font-style:normal;font-weight:500;color:var(--ink-3);font-size:13.5px}
+
+/* ---------- Page 2: a presentation at its top ---------- */
+.pr-outer{overflow:hidden;height:0;opacity:0}
+.pr{border-radius:14px;padding:12px;margin:0 -12px}
+.pr-tabs{display:flex;gap:6px;margin-bottom:10px}
+.tab{font-size:14.5px;font-weight:600;padding:6px 14px;border-radius:8px;color:var(--ink-2)}
+.tab.on{background:var(--brand-50);color:var(--brand-700);box-shadow:inset 0 0 0 1px var(--brand-100)}
+.frame{position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;color:#fff;
+  background:radial-gradient(620px 380px at 88% -6%,rgba(116,100,240,.62),rgba(116,100,240,0) 64%),radial-gradient(520px 300px at -6% 108%,rgba(14,138,125,.32),rgba(14,138,125,0) 62%),#16142A}
+.sl{position:absolute;inset:0;padding:52px 60px;opacity:0}
+.sl .b{opacity:0}
+.sl-eye{font-size:14px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#B4AAFA}
+.sl-cover h4{font-size:54px;line-height:1.06;font-weight:780;letter-spacing:-.03em;margin:22px 0 18px}
+.sl-cover p{font-size:19px;color:#C4C1DA;margin:0}
+.sl-cover svg{position:absolute;left:60px;bottom:74px;width:360px;height:24px;overflow:visible}
+.sl-cover svg path{fill:none;stroke:#8F82F7;stroke-width:4;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1}
+.sl h5{font-size:36px;font-weight:760;letter-spacing:-.025em;margin:12px 0 0}
+.tl{position:absolute;left:60px;right:60px;top:206px;height:200px}
+.tl svg{position:absolute;left:0;top:0;width:100%;height:24px;overflow:visible}
+.tl svg path{fill:none;stroke:#8F82F7;stroke-width:3;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1}
+.ms{position:absolute;top:0;width:230px;opacity:0}
+.ms i{position:absolute;left:0;top:3px;width:18px;height:18px;border-radius:50%;background:#16142A;border:3.5px solid #B4AAFA}
+.ms b{display:block;margin-top:40px;font-size:26px;font-weight:760;color:#B4AAFA;letter-spacing:-.01em}
+.ms span{display:block;font-size:17px;line-height:1.4;color:#E9E7F5;margin-top:6px}
+.ms .who{display:inline-flex;align-items:center;gap:8px;margin-top:12px;font-size:14px;color:#C4C1DA}
+.ms .who .av{width:24px;height:24px;font-size:9px}
+.tiles{position:absolute;left:60px;right:60px;top:170px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.tile{border-radius:14px;padding:24px 22px 26px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);opacity:0}
+.tile b{display:block;font-size:40px;font-weight:780;letter-spacing:-.03em;color:#fff}
+.tile span{display:block;font-size:16.5px;line-height:1.45;color:#C4C1DA;margin-top:10px}
+.ffoot{position:absolute;left:60px;right:24px;bottom:18px;display:flex;justify-content:space-between;font-size:13.5px;color:#9C98B8;font-weight:500}
+.fbar{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.08)}
+.fbar i{display:block;height:100%;width:0;background:#8F82F7}
+.pr-bar{display:flex;align-items:center;gap:6px;margin-top:12px}
+.pr-bar .ttl{flex:1;display:flex;align-items:center;gap:10px;font-size:16px;font-weight:600;min-width:0;white-space:nowrap}
+.pr-bar .ttl svg.i{color:var(--ink-3)}
+.btn{display:inline-flex;align-items:center;gap:7px;font-size:14.5px;font-weight:600;padding:7px 12px;border-radius:8px;color:var(--ink-2);white-space:nowrap}
+.btn svg.i{width:17px;height:17px}
+.btn.sec{box-shadow:inset 0 0 0 1px var(--brand-200);color:var(--brand-700);background:var(--surface)}
+.btn.sec.hov{background:var(--brand-50)}
+.btn.more{padding:7px 9px}
+
+/* ---------- Share dialog ---------- */
+.share.on{background:var(--brand-700)}
+.sharepop{position:absolute;top:74px;right:26px;width:470px;background:var(--surface);border-radius:14px;padding:20px 20px 18px;opacity:0;z-index:35;
+  box-shadow:0 0 0 1px rgba(29,27,44,.08),0 24px 60px -18px rgba(29,27,44,.35)}
+.sp-h b{display:block;font-size:19px;font-weight:700;letter-spacing:-.01em}
+.sp-h span{display:block;font-size:14px;color:var(--ink-3);margin-top:3px}
+.sp-sec{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin:18px 0 6px}
+.sp-row{display:flex;align-items:center;gap:12px;padding:7px 0}
+.sp-row .av{width:32px;height:32px;font-size:11.5px}
+.sp-row div{flex:1;min-width:0}
+.sp-row b{display:block;font-size:15px;font-weight:600}
+.sp-row span{display:block;font-size:13.5px;color:var(--ink-3)}
+.sp-row em{font-style:normal;font-size:14px;color:var(--ink-2);font-weight:500}
+.sp-row .ws-logo{width:32px;height:32px;border-radius:8px;font-size:13px}
+.sp-link{display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 10px 10px 14px;border-radius:10px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line);font-size:14px;color:var(--ink-2)}
+.sp-link svg.i{width:17px;height:17px;color:var(--ink-3)}
+.sp-link .lk{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.copy{display:inline-flex;align-items:center;gap:7px;background:var(--brand);color:#fff;font-weight:600;font-size:14px;padding:7px 14px;border-radius:8px;white-space:nowrap}
+.copy svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;display:none}
+.copy.done{background:var(--ok)}
+.copy.done svg{display:block}
 
 /* ================= Portrait: phones held upright only =================
    The same story on a tall 1080×1920 stage (body.portrait, set in fit()):
@@ -286,7 +364,7 @@ body.portrait .toast span{font-size:19px}
 body.portrait .cur svg{width:36px;height:36px}
 body.portrait .cur .nm{left:24px;top:30px;font-size:20px;padding:6px 13px}
 
-body.portrait #chat{left:36px;right:36px;top:auto;bottom:52px;width:auto;height:1180px;border-radius:26px}
+body.portrait #chat,body.portrait #chat2{left:36px;right:36px;top:auto;bottom:52px;width:auto;height:1180px;border-radius:26px}
 body.portrait .chat-head{padding:24px 30px}
 body.portrait .ai-badge{font-size:24px;padding:7px 20px}
 body.portrait .chat-sub{font-size:22px}
@@ -334,7 +412,41 @@ body.idle .ctrls{opacity:0}
 #pp .prog{position:absolute;inset:0;width:46px;height:46px;transform:rotate(-90deg)}
 #pp .prog circle{fill:none;stroke:var(--brand);stroke-width:2.5;stroke-dasharray:1;stroke-linecap:round}
 #pp svg.ic2{width:18px;height:18px;fill:currentColor}
+
+/* the second chat: the files the assistant made */
+body.portrait .file{font-size:22px;padding:10px 16px 10px 13px;gap:11px}
+body.portrait .file svg.i{width:24px;height:24px}
+body.portrait .file em{font-size:19px}
+/* the new page: its presentation, larger controls */
+body.portrait .pr{padding:14px;margin:0 -14px}
+body.portrait .tab{font-size:22px;padding:8px 18px}
+body.portrait .pr-bar{gap:4px;margin-top:14px}
+body.portrait .pr-bar .ttl{font-size:24px;overflow:hidden;text-overflow:ellipsis}
+body.portrait .pr-bar .ttl svg.i{width:26px;height:26px}
+body.portrait .btn{font-size:21px;padding:9px 12px}
+body.portrait .btn svg.i{width:23px;height:23px}
+/* the share dialog, across the page */
+body.portrait .sharepop{left:36px;right:36px;width:auto;top:118px;padding:30px 30px 26px;border-radius:20px}
+body.portrait .sp-h b{font-size:32px}
+body.portrait .sp-h span{font-size:22px}
+body.portrait .sp-sec{font-size:18px;margin:26px 0 8px}
+body.portrait .sp-row{gap:18px;padding:11px 0}
+body.portrait .sp-row b{font-size:26px}
+body.portrait .sp-row span{font-size:21px}
+body.portrait .sp-row em{font-size:23px}
+body.portrait .sp-row .av,body.portrait .sp-row .ws-logo{width:54px;height:54px;font-size:18px}
+body.portrait .sp-link{font-size:21px;padding:14px 14px 14px 20px;margin-top:20px;gap:14px}
+body.portrait .sp-link svg.i{width:24px;height:24px}
+body.portrait .copy{font-size:21px;padding:11px 20px}
+body.portrait .copy svg{width:18px;height:18px}
+
+/* ---------- Print: the stage as it is, one screen ---------- */
+@page{size:1920px 1080px;margin:0}
+@media print{html,body{height:auto;overflow:visible}#stage{position:relative;left:0;top:0;transform:none!important}}
 </style>
+<script type="application/json" id="collaborators-presentation">
+{"kind": "animation", "seconds": 60}
+</script>
 </head>
 <body>
 
@@ -381,6 +493,8 @@ body.idle .ctrls{opacity:0}
         <div class="space" data-space><svg class="i chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><svg class="i f" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>Engineering</div>
         <div class="space" data-space><svg class="i chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><svg class="i f" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>Design</div>
         <div class="space" data-space><svg class="i chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><svg class="i f" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>Operations</div>
+        <div class="ws-head ws2" id="ws2Head"><span class="ws-logo n">N</span>New WorkSpace</div>
+        <div class="kids" id="kids2"><div class="pg" id="pgNew" style="padding-left:44px"><svg class="i" viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10.5a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5z"/><path d="M13.5 3.5V8h4.5"/></svg>New Page</div></div>
         <div class="side-foot" id="sideFoot"><span class="av ada">AL</span><div><b>Ada Lovelace</b><span>ada@example.org</span></div></div>
       </aside>
 
@@ -388,9 +502,11 @@ body.idle .ctrls{opacity:0}
         <div class="topbar">
           <div class="crumbs" id="crumbA"><b>Acme</b></div>
           <div class="crumbs" id="crumbB" hidden>Acme<span class="sep">/</span>Product<span class="sep">/</span><b>Q4 Roadmap</b></div>
+          <div class="crumbs" id="crumbC" hidden>New WorkSpace<span class="sep">/</span><b>New Page</b></div>
           <div class="live"><i></i>Live</div>
-          <div class="presence"><span class="av ada">AL</span><span class="av alan">AT</span><span class="av grace">GH</span></div>
-          <div class="share">Share</div>
+          <div class="presence" id="presA"><span class="av ada">AL</span><span class="av alan">AT</span><span class="av grace">GH</span></div>
+          <div class="presence b" id="presB" hidden><span class="av ada">AL</span><span class="av u1" id="presU1">U1</span><span class="av u2" id="presU2">U2</span></div>
+          <div class="share" id="shareBtn">Share</div>
         </div>
         <div class="vp" id="vp">
           <div class="home" id="home">
@@ -446,10 +562,67 @@ body.idle .ctrls{opacity:0}
             </div></div>
           </article>
 
+          <article class="page" id="page2">
+            <h1 class="p-title blk2">New Page</h1>
+            <div class="p-meta blk2"><span class="stack"><span class="av ada">AL</span><span class="av u1">U1</span><span class="av u2">U2</span><span class="av u3">U3</span></span>New WorkSpace · 4 people on this page</div>
+            <div class="pr-outer" id="prOuter"><div class="pr" id="pr">
+              <div class="pr-tabs"><span class="tab on">Motion</span><span class="tab">Slides</span></div>
+              <div class="frame" id="frame">
+                <section class="sl sl-cover" id="sl1">
+                  <div class="sl-eye b">Acme · Product</div>
+                  <h4 class="b">Q4 launch:<br>pilot programme</h4>
+                  <p class="b">From the planning sync of 26 October 2026</p>
+                  <svg viewBox="0 0 360 24" aria-hidden="true"><path id="slStroke" pathLength="1" d="M4 15 C 70 4, 130 22, 190 12 S 300 4, 356 13"/></svg>
+                </section>
+                <section class="sl" id="sl2">
+                  <div class="sl-eye b">Timeline</div>
+                  <h5 class="b">Three dates for the pilot</h5>
+                  <div class="tl">
+                    <svg viewBox="0 0 736 24" preserveAspectRatio="none" aria-hidden="true"><path id="tlLine" pathLength="1" d="M9 12 H 727"/></svg>
+                    <div class="ms" style="left:0"><i></i><b>18 Nov</b><span>Beta opens to pilot teams</span><span class="who"><span class="av ada">AL</span>Ada Lovelace</span></div>
+                    <div class="ms" style="left:262px"><i></i><b>29 Nov</b><span>Accessibility fixes done</span><span class="who"><span class="av grace">GH</span>Grace Hopper</span></div>
+                    <div class="ms" style="left:524px"><i></i><b>2 Dec</b><span>Release notes out</span><span class="who"><span class="av alan">AT</span>Alan Turing</span></div>
+                  </div>
+                </section>
+                <section class="sl" id="sl3">
+                  <div class="sl-eye b">What pilot teams get</div>
+                  <h5 class="b">Up and running in one meeting</h5>
+                  <div class="tiles">
+                    <div class="tile"><b>&lt; 10 min</b><span>to a working workspace, with guided setup</span></div>
+                    <div class="tile"><b>Weekly</b><span>feedback calls with the product team</span></div>
+                    <div class="tile"><b>History</b><span>every version of every page, kept</span></div>
+                  </div>
+                </section>
+                <div class="ffoot"><span>Acme · Q4 launch</span><span id="fcount">1 / 6</span></div>
+                <div class="fbar"><i id="fprog"></i></div>
+              </div>
+              <div class="pr-bar">
+                <span class="ttl"><svg class="i" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="12.5" rx="2"/><path d="M10.5 8.8v5l4-2.5z"/><path d="M8.5 20.5h7"/></svg>Q4 launch: pilot programme</span>
+                <span class="btn"><svg class="i" viewBox="0 0 24 24"><path d="M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15"/></svg>Full screen</span>
+                <span class="btn"><svg class="i" viewBox="0 0 24 24"><path d="M13.5 4.5h6v6M19.5 4.5l-8 8"/><path d="M17.5 13.5v5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1h5"/></svg>Open</span>
+                <span class="btn sec" id="pdfBtn"><svg class="i" viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10.5a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5z"/><path d="M12 10v6.5M9.3 14l2.7 2.7 2.7-2.7"/></svg>Export to PDF</span>
+                <span class="btn more"><svg class="i" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/></svg></span>
+              </div>
+            </div></div>
+          </article>
+
           <div class="ov" id="cov">
             <div class="cur" id="curAlan" style="--c:var(--alan)"><span class="ring"></span><svg viewBox="0 0 24 24"><path d="M3 3l16.5 8.3-7.6 1.9-3.3 7.3z"/></svg><span class="nm">Alan Turing</span></div>
             <div class="cur" id="curGrace" style="--c:var(--grace)"><span class="ring"></span><svg viewBox="0 0 24 24"><path d="M3 3l16.5 8.3-7.6 1.9-3.3 7.3z"/></svg><span class="nm">Grace Hopper</span></div>
+            <div class="cur" id="curU1" style="--c:var(--u1)"><span class="ring"></span><svg viewBox="0 0 24 24"><path d="M3 3l16.5 8.3-7.6 1.9-3.3 7.3z"/></svg><span class="nm">User 1</span></div>
+            <div class="cur" id="curU2" style="--c:var(--u2)"><span class="ring"></span><svg viewBox="0 0 24 24"><path d="M3 3l16.5 8.3-7.6 1.9-3.3 7.3z"/></svg><span class="nm">User 2</span></div>
           </div>
+        </div>
+
+        <div class="sharepop" id="sharePop">
+          <div class="sp-h"><b>Share “New Page”</b><span>New WorkSpace</span></div>
+          <div class="sp-sec">People with access</div>
+          <div class="sp-row"><span class="av ada">AL</span><div><b>Ada Lovelace (you)</b><span>ada@example.org</span></div><em>Owner</em></div>
+          <div class="sp-row"><span class="av u1">U1</span><div><b>User 1</b><span>user1@example.org</span></div><em>Reader</em></div>
+          <div class="sp-row"><span class="av u2">U2</span><div><b>User 2</b><span>user2@example.org</span></div><em>Reader</em></div>
+          <div class="sp-row"><span class="av u3">U3</span><div><b>User 3</b><span>user3@example.org</span></div><em>Reader</em></div>
+          <div class="sp-row"><span class="ws-logo n">N</span><div><b>Members of New WorkSpace</b><span>everyone in the workspace</span></div><em>Reader</em></div>
+          <div class="sp-link"><svg class="i" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="lk">collaborators.community/new-workspace/new-page</span><span class="copy" id="copyBtn"><svg viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5"/></svg><span id="copyTxt">Copy link</span></span></div>
         </div>
 
         <div class="toast" id="toast"><span class="av ada">AL</span><div><b>Ada Lovelace added input</b><span>via Claude · just now</span></div></div>
@@ -461,7 +634,7 @@ body.idle .ctrls{opacity:0}
   </div>
 
   <!-- 3 · Assistant -->
-  <div id="chat">
+  <div id="chat" class="chat">
     <div class="chat-head"><span class="ai-badge">Claude</span><span class="chat-sub">Ada’s assistant</span><span class="conn"><i></i>Collaborators connected</span></div>
     <div class="chat-body">
       <div class="msg-user" id="mUser">Add a summary of today’s meeting to my ‘Q4 Roadmap’ page in Collaborators.</div>
@@ -485,14 +658,45 @@ body.idle .ctrls{opacity:0}
       <div class="send" id="send"><svg class="i" viewBox="0 0 24 24"><path d="M12 18.5V6M6.8 11 12 5.8 17.2 11"/></svg></div></div></div>
   </div>
 
-  <!-- 5 · Trust -->
+
+  <!-- 5 · Assistant: a presentation on a new page -->
+  <div id="chat2" class="chat">
+    <div class="chat-head"><span class="ai-badge">Claude</span><span class="chat-sub">Ada’s assistant</span><span class="conn"><i></i>Collaborators connected</span></div>
+    <div class="chat-body">
+      <div class="msg-user" id="mUser2"></div>
+      <div class="ai">
+        <div class="ai-who" id="aiWho2">Claude</div>
+        <div class="think" id="think2"><i></i><i></i><i></i></div>
+        <div class="files" id="files2">
+          <span class="file"><svg class="i" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="12.5" rx="2"/><path d="M10.5 8.8v5l4-2.5z"/></svg>q4-launch.html<em>animation</em></span>
+          <span class="file"><svg class="i" viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10.5a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5z"/><path d="M13.5 3.5V8h4.5"/></svg>q4-launch.pdf<em>6 slides</em></span>
+        </div>
+        <div class="tool" id="tool2">
+          <div class="tool-h"><svg class="i" viewBox="0 0 24 24"><path d="M14.5 4.5l5 5-10 10h-5v-5z"/></svg>Using Collaborators</div>
+          <div class="steps">
+            <span class="step"><span class="ic" id="ic1b"><svg viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5"/></svg></span><code>find_pages</code></span>
+            <span class="arrow" id="arr2">→</span>
+            <span class="step"><span class="ic" id="ic2b"><svg viewBox="0 0 12 12"><path d="M2.5 6.3l2.3 2.3 4.7-5"/></svg></span><code>create_presentation_page</code></span>
+          </div>
+          <div class="tool-r" id="r1b"><svg class="i" viewBox="0 0 24 24"><path d="M5.5 12.5l4 4 9-9.5"/></svg>Found your workspace “New WorkSpace”</div>
+          <div class="tool-r" id="r2b"><svg class="i" viewBox="0 0 24 24"><path d="M5.5 12.5l4 4 9-9.5"/></svg>Created “New Page”, the presentation at its top</div>
+          <div class="tool-r" id="r3b"><svg class="i" viewBox="0 0 24 24"><path d="M5.5 12.5l4 4 9-9.5"/></svg>Added User 1, User 2 and User 3, told by email</div>
+        </div>
+        <p class="ai-text" id="aiText2">Done. “New Page” is in New WorkSpace with your presentation and its PDF at the top. User 1, User 2 and User 3 can open it now.</p>
+      </div>
+    </div>
+    <div class="chat-input"><div class="field"><span class="ph" id="ph2">Message Claude…</span><span id="typed2"></span><span class="tcaret" id="tcaret2"></span>
+      <div class="send" id="send2"><svg class="i" viewBox="0 0 24 24"><path d="M12 18.5V6M6.8 11 12 5.8 17.2 11"/></svg></div></div></div>
+  </div>
+
+  <!-- 6 · Trust -->
   <section class="scene" id="s5">
     <div class="s5-inner">
       <p class="eyebrow" id="eye">Bring your own AI</p>
       <h2 class="s5-title" id="s5t">Your assistant adds. You stay in control.</h2>
       <div class="cards">
         <div class="card"><div class="ico"><svg class="i" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8v8M8 12h8"/></svg></div>
-          <h3>Only adds, never changes</h3><p>It adds one new toggle heading at the end of a page. Nothing already on the page can be edited or deleted.</p></div>
+          <h3>Adds, never rewrites</h3><p>It adds a toggle heading, a presentation, or a new page with one at its top. What people wrote is never edited or deleted.</p></div>
         <div class="card"><div class="ico"><svg class="i" viewBox="0 0 24 24"><path d="M4 20h4.5L19.5 9 15 4.5 4 15.5z"/><path d="M12.8 6.7l4.5 4.5"/></svg></div>
           <h3>Only pages you can edit</h3><p>It works with your own permissions, so it reaches only the pages you are already allowed to edit.</p></div>
         <div class="card"><div class="ico"><svg class="i" viewBox="0 0 24 24"><rect x="3.5" y="6.5" width="17" height="13" rx="2.5"/><path d="M3.5 10.5h17"/><path d="M15.5 15h2"/></svg></div>
@@ -502,7 +706,7 @@ body.idle .ctrls{opacity:0}
     </div>
   </section>
 
-  <!-- 6 · End card -->
+  <!-- 7 · End card -->
   <section class="scene" id="s6">
     <div class="s6-inner">
       <div class="wm endwm" id="endWm" aria-label="Collaborators"></div>
@@ -515,11 +719,7 @@ body.idle .ctrls{opacity:0}
 
 <script>
 (()=>{
-const DUR=40;
-/* Phones (a touch screen) held upright play the portrait version (CSS:
-   body.portrait); every other screen plays the original, unchanged */
-const PHONE=matchMedia('(pointer: coarse)').matches;
-let PORTRAIT=false;
+const DUR=60;
 const $=id=>document.getElementById(id);
 const clamp=(x,a=0,b=1)=>x<a?a:x>b?b:x;
 const lerp=(a,b,k)=>a+(b-a)*k;
@@ -545,18 +745,65 @@ function wmIn(chs,t,start,step,dur,dy){
 }
 
 /* elements */
-const s1=$('s1'),s5=$('s5'),s6=$('s6'),app=$('app'),chat=$('chat');
+const s1=$('s1'),s5=$('s5'),s6=$('s6'),app=$('app');
 const navItems=[...document.querySelectorAll('.nav-item')];
 const spaces=[...document.querySelectorAll('[data-space]')];
 const homeB=[...document.querySelectorAll('#home .hb')];
 const pageB=[...document.querySelectorAll('#page .blk')];
+const page2B=[...document.querySelectorAll('#page2 .blk2')];
 const cards=[...document.querySelectorAll('.card')], pills=[...document.querySelectorAll('.pill')];
-const E={};['heroStroke','tag1','tag2','sideBrand','sideLabel','wsHead','sideFoot','kids','pgQ4','prodChev','home','page','vp','crumbA','crumbB','urlText',
+const E={};['heroStroke','tag1','tag2','sideBrand','sideLabel','wsHead','sideFoot','kids','pgQ4','prodChev','home','page','vp','crumbA','crumbB','crumbC','urlText',
  'alanMark','alanTyped','alanCaret','st3','tgOuter','tgPad','tgHead','tri','tgBody','tgInner','tgB2','tgRow2','toast','ov','cov','curAda','curAlan','curGrace',
- 'mUser','aiWho','think','tool','ic1','ic2','arr','r1','r2','aiText','ph','typed','tcaret','send','eye','s5t','wl','endUrl','endGh','time','progC','pp','icoPlay','icoPause'].forEach(id=>E[id]=$(id));
+ 'eye','s5t','wl','endUrl','endGh','ws2Head','kids2','pgNew','presA','presB','presU1','presU2','shareBtn','sharePop','copyBtn','copyTxt',
+ 'page2','prOuter','pr','frame','sl1','sl2','sl3','slStroke','tlLine','fcount','fprog','pdfBtn','curU1','curU2'].forEach(id=>E[id]=$(id));
+
+/* Phones (a touch screen) held upright play the portrait version (CSS:
+   body.portrait); every other screen plays the original, unchanged */
+const PHONE=matchMedia('(pointer: coarse)').matches;
+let PORTRAIT=false;
 
 const ALAN_TXT=' The beta opens to pilot teams on 18 November.';
-const PROMPT='Add a summary of today’s meeting to my ‘Q4 Roadmap’ page in Collaborators.';
+
+/* the two conversations with the assistant: what happens when */
+function chatOf(root,sfx,prompt,at){
+  const q=id=>$(id+sfx);
+  return {root,prompt,at,mUser:q('mUser'),aiWho:q('aiWho'),think:q('think'),files:sfx?q('files'):null,tool:q('tool'),
+    ics:[q('ic1'),q('ic2')],arr:q('arr'),rs:[q('r1'),q('r2'),sfx?q('r3'):null].filter(Boolean),aiText:q('aiText'),
+    ph:q('ph'),typed:q('typed'),tcaret:q('tcaret'),send:q('send')};
+}
+const CHATS=[
+  chatOf($('chat'),'','Add a summary of today’s meeting to my ‘Q4 Roadmap’ page in Collaborators.',
+    {in:12.15,typeA:13.2,typeB:15.8,sent:16.0,who:16.35,think:[16.4,17.1],tool:16.95,ic:[[17.0,17.75],[17.85,18.8]],r:[17.8,18.85],text:19.05,out:19.9}),
+  chatOf($('chat2'),'2','Make a presentation of our Q4 launch plan on a new page, “New Page”, in my “New WorkSpace”, and add user1@, user2@ and user3@example.org.',
+    {in:29.45,typeA:30.5,typeB:34.1,sent:34.3,who:34.65,think:[34.7,35.35],files:35.4,tool:35.7,ic:[[35.8,36.5],[36.6,37.5]],r:[36.55,37.55,37.85],text:38.1,out:38.9}),
+];
+// The second chat's ids: the shared markup uses suffixes 2 and b
+(c=>{c.mUser=$('mUser2');c.aiWho=$('aiWho2');c.think=$('think2');c.files=$('files2');c.tool=$('tool2');c.ics=[$('ic1b'),$('ic2b')];c.arr=$('arr2');
+  c.rs=[$('r1b'),$('r2b'),$('r3b')];c.aiText=$('aiText2');c.ph=$('ph2');c.typed=$('typed2');c.tcaret=$('tcaret2');c.send=$('send2');
+  c.mUser.textContent=c.prompt;})(CHATS[1]);
+
+function renderChat(C,t){
+  const A=C.at,cin=P(t,A.in,A.in+.85,eout),cout=P(t,A.out,A.out+.7);
+  C.root.style.opacity=cin*(1-cout);
+  C.root.style.transform=PORTRAIT?`translateY(${(1-cin)*1300+cout*160}px)`:`translateX(${(1-cin)*680+cout*120}px)`;
+  if(!(cin>0&&cout<1)) return;
+  const n=Math.floor(P(t,A.typeA,A.typeB,lin)*C.prompt.length), sent=t>=A.sent;
+  setText(C.typed,sent?'':C.prompt.slice(0,n));
+  C.ph.hidden=!(n===0||sent);
+  C.tcaret.style.opacity=(t>=A.typeA&&t<A.typeB)?1:(Math.floor(t*2.2)%2?0:1);
+  C.send.classList.toggle('on',n>0&&!sent);
+  rise(C.mUser,t,A.sent,.45,14);
+  rise(C.aiWho,t,A.who,.4,8);
+  C.think.style.opacity=win(t,A.think[0],A.think[0]+.15,A.think[1]-.15,A.think[1]);
+  [...C.think.children].forEach((d,i)=>d.style.transform=`translateY(${-4*Math.max(0,Math.sin(t*9-i*.9))}px)`);
+  if(C.files) rise(C.files,t,A.files,.45,10);
+  rise(C.tool,t,A.tool,.45,10);
+  C.ics.forEach((ic,i)=>{const [a,b]=A.ic[i];ic.className='ic '+(t<a?'':(t<b?'run':'done'));
+    ic.style.transform=ic.classList.contains('run')?`rotate(${t*420}deg)`:'none';});
+  C.arr.style.color=t>=A.ic[0][1]?'var(--brand)':'';
+  C.rs.forEach((r,i)=>rise(r,t,A.r[i],.4,6));
+  rise(C.aiText,t,A.text,.5,10);
+}
 
 /* positions relative to an overlay (works through any CSS transform) */
 function at(ov,el,ax=.5,ay=.5,dx=0,dy=0){return ()=>{const r=el.getBoundingClientRect(),o=ov.getBoundingClientRect(),s=o.width/ov.offsetWidth||1;
@@ -572,20 +819,35 @@ function ring(el,t,clicks){const r=el.firstElementChild;let k=-1;for(const c of 
   if(k<0){r.style.opacity=0;return;} r.style.opacity=(1-k)*.9;r.style.transform=`scale(${lerp(.35,1.5,eout(k))})`;}
 
 const ov=E.ov,cov=E.cov;
-const adaQ4=at(ov,E.pgQ4,.42,.5), adaProd=at(ov,spaces[0],.42,.5);
-const ADA=[[6.4,fx(980,640)],[6.85,fx(980,640)],[7.3,adaProd],[7.85,adaProd],[8.25,adaQ4],[8.9,adaQ4],[9.5,fx(760,820)]];
+const adaQ4=at(ov,E.pgQ4,.42,.5), adaProd=at(ov,spaces[0],.42,.5), adaNew=at(ov,E.pgNew,.45,.5),
+  adaShare=at(ov,E.shareBtn,.45,.6), adaCopy=at(ov,E.copyBtn,.5,.6);
+const ADA=[[6.4,fx(980,640)],[6.85,fx(980,640)],[7.3,adaProd],[7.85,adaProd],[8.25,adaQ4],[8.9,adaQ4],[9.5,fx(760,820)],
+  [39.3,fx(820,640)],[39.95,adaNew],[40.6,adaNew],[41.3,fx(1000,720)],
+  [45.1,fx(1200,430)],[45.75,adaShare],[46.2,adaShare],[46.9,adaCopy],[47.5,adaCopy],[48.4,fx(1380,640)]];
 const alanAt=at(cov,E.alanMark,0,1,-4,12), alanB2=at(cov,E.tgB2,.62,.55), alanRowA=at(cov,E.tgRow2,.3,.55), alanRowB=at(cov,E.tgRow2,.62,.6);
 const ALAN=[[9.2,fx(1470,430)],[9.9,alanAt],[24.3,alanAt],[25.4,alanB2],[26.3,alanB2],[27.2,alanRowA],[28.6,alanRowB]];
 const graceSt=at(cov,E.st3,.5,.6), graceRest=at(cov,E.st3,.5,.6,90,46), graceTri=at(cov,E.tri,.55,.55), graceAway=at(cov,E.tgHead,1,.5,70,24);
 const GRACE=[[9.45,fx(1300,900)],[10.35,graceSt],[10.9,graceSt],[11.7,graceRest],[21.9,graceRest],[22.65,graceTri],[23.2,graceTri],[24.1,graceAway]];
-/* portrait: no side panel, so Ada opens the Product space from its card;
-   Alan and Grace come in from points on the narrower page */
+const u1Next=at(cov,E.frame,.8,.62), u1Rest=at(cov,E.frame,.76,.56), u1Away=at(cov,E.frame,.62,.82);
+const U1=[[41.3,fx(1320,640)],[41.95,u1Next],[42.95,u1Next],[43.5,u1Rest],[44.1,u1Next],[44.7,u1Next],[45.5,u1Away]];
+const u2Pdf=at(cov,E.pdfBtn,.42,.62), u2Away=at(cov,E.pdfBtn,.2,.4,-430,-130);
+const U2=[[41.7,fx(240,760)],[43.45,u2Pdf],[45.0,u2Pdf],[45.8,u2Away]];
+/* portrait: no side panel, so Ada opens the Product space from its card and
+   the new page opens on its own; Alan and Grace come in from points on the
+   narrower page */
 const adaCard=at(ov,document.querySelector('#home .fcard'),.3,.5);
-const ADA_P=[[6.4,fx(700,1250)],[6.85,fx(700,1250)],[7.3,adaCard],[7.85,adaCard],[8.25,adaCard],[8.9,adaCard],[9.5,fx(560,1500)]];
+const ADA_P=[[6.4,fx(700,1250)],[6.85,fx(700,1250)],[7.3,adaCard],[7.85,adaCard],[8.25,adaCard],[8.9,adaCard],[9.5,fx(560,1500)],
+  [45.1,fx(640,760)],[45.75,adaShare],[46.2,adaShare],[46.9,adaCopy],[47.5,adaCopy],[48.4,fx(640,1300)]];
 const ALAN_P=[[9.2,fx(860,520)],...ALAN.slice(1)];
 // Grace waits left of the label, her name tag kept on screen
 const graceRestP=at(cov,E.st3,.5,.6,-150,52);
 const GRACE_P=[[9.45,fx(760,1400)],[10.35,graceSt],[10.9,graceSt],[11.7,graceRestP],[21.9,graceRestP],[22.65,graceTri],[23.2,graceTri],[24.1,graceAway]];
+const U1_P=[[41.3,fx(900,1500)],...U1.slice(1)], U2_P=[[41.7,fx(160,1500)],...U2.slice(1)];
+
+/* the slides inside the presentation: when each comes in */
+const SL=[E.sl1,E.sl2,E.sl3], SLAT=[40.85,42.95,44.65];
+const slB=SL.map(s=>[...s.querySelectorAll('.b')]);
+const milestones=[...E.sl2.querySelectorAll('.ms')], tiles=[...E.sl3.querySelectorAll('.tile')];
 
 function render(t){
   /* ---- 1 · title ---- */
@@ -595,25 +857,34 @@ function render(t){
   E.heroStroke.style.strokeDashoffset=1-P(t,1.3,2.5);
   rise(E.tag1,t,2.0,.7,18); rise(E.tag2,t,2.4,.7,18);
 
-  /* ---- 2–4 · app ---- */
-  const ain=P(t,4.9,5.8),aout=P(t,29.2,30.0),shr=P(t,12.0,12.9)*(1-P(t,19.9,20.7));
+  /* ---- 2–6 · app ---- */
+  const ain=P(t,4.9,5.8),aout=P(t,48.8,49.6),
+    shr=Math.max(P(t,12.0,12.9)*(1-P(t,19.9,20.7)),P(t,29.3,30.2)*(1-P(t,38.9,39.7)));
   app.style.opacity=ain*(1-aout);
   app.style.transform=PORTRAIT
     ?`translate(0px,${(1-ain)*26}px) scale(${lerp(1,.97,shr)*lerp(.975,1,ain)*lerp(1,.985,aout)})`
     :`translate(${lerp(0,-60,shr)}px,${(1-ain)*26}px) scale(${lerp(1,.8,shr)*lerp(.975,1,ain)*lerp(1,.985,aout)})`;
   if(ain>0&&aout<1){
     rise(E.sideBrand,t,5.25); navItems.forEach((n,i)=>rise(n,t,5.35+i*.08,.5,10));
-    rise(E.sideLabel,t,5.8); rise(E.wsHead,t,5.9); spaces.forEach((s,i)=>rise(s,t,6.0+i*.08,.5,10)); rise(E.sideFoot,t,5.6);
+    rise(E.sideLabel,t,5.8); rise(E.wsHead,t,5.9); spaces.forEach((s,i)=>rise(s,t,6.0+i*.08,.5,10)); rise(E.ws2Head,t,6.32,.5,10); rise(E.sideFoot,t,5.6);
     spaces[0].classList.toggle('hover',t>=7.2&&t<7.6);
     spaces[0].classList.toggle('open',t>=7.35);
     E.prodChev.style.transform=`rotate(${90*P(t,7.35,7.7)}deg)`;
     E.kids.style.height=(P(t,7.35,7.85)*E.kids.scrollHeight)+'px';
-    E.pgQ4.classList.toggle('active',t>=8.3);
+    const onNew=t>=40.5;
+    E.pgQ4.classList.toggle('active',t>=8.3&&!onNew);
+    /* the new page appears in the sidebar as the assistant creates it */
+    E.kids2.style.height=(P(t,37.55,38.0)*E.kids2.scrollHeight)+'px';
+    E.pgNew.classList.toggle('fresh',t>=37.6&&t<40.5);
+    E.pgNew.classList.toggle('active',onNew);
+    E.ws2Head.style.background=`rgba(91,76,214,${.1*win(t,37.55,37.8,39.6,40.4)})`;
     const opened=t>=8.3;
-    E.crumbA.hidden=opened; E.crumbB.hidden=!opened;
-    setText(E.urlText,opened?'collaborators.community/acme/product/q4-roadmap':'collaborators.community/acme');
+    E.crumbA.hidden=opened; E.crumbB.hidden=!opened||onNew; E.crumbC.hidden=!onNew;
+    E.presA.hidden=onNew; E.presB.hidden=!onNew;
+    [E.presU1,E.presU2].forEach((a,i)=>{const k=P(t,41.3+i*.4,41.75+i*.4,eout);a.style.opacity=k;a.style.transform=`scale(${lerp(.4,1,eback(clamp((t-41.3-i*.4)/.45)))})`;});
+    setText(E.urlText,onNew?'collaborators.community/new-workspace/new-page':opened?'collaborators.community/acme/product/q4-roadmap':'collaborators.community/acme');
     E.home.style.opacity=P(t,5.6,6.1)*(1-P(t,8.3,8.6)); homeB.forEach((b,i)=>rise(b,t,5.75+i*.09,.55,14));
-    E.page.style.opacity=P(t,8.4,8.8); pageB.forEach((b,i)=>rise(b,t,8.45+i*.07,.55,14));
+    E.page.style.opacity=P(t,8.4,8.8)*(1-P(t,40.5,40.75)); pageB.forEach((b,i)=>rise(b,t,8.45+i*.07,.55,14));
 
     /* Alan types, Grace changes a label */
     const n=Math.floor(P(t,10.0,11.75,lin)*ALAN_TXT.length);
@@ -642,57 +913,71 @@ function render(t){
     const tt=win(t,21.4,21.9,26.0,26.5);
     E.toast.style.opacity=tt; E.toast.style.transform=`translateY(${(1-tt)*-12}px)`;
 
+    /* the new page, its presentation at the top */
+    E.page2.style.opacity=P(t,40.55,40.9); page2B.forEach((b,i)=>rise(b,t,40.6+i*.08,.55,14));
+    const pk=P(t,40.75,41.35,eout);
+    E.prOuter.style.opacity=pk; E.prOuter.style.height=pk<1?(pk*E.pr.offsetHeight)+'px':'auto';
+    E.pr.style.transform=`translateY(${(1-pk)*10}px)`;
+    const g2=win(t,40.8,41.4,42.6,43.8);
+    E.pr.style.background=`rgba(91,76,214,${.05*g2})`;
+    E.pr.style.boxShadow=`0 0 0 ${1+3*g2}px rgba(91,76,214,${.1+.22*g2})`;
+    SL.forEach((s,i)=>{const a=SLAT[i],b=SLAT[i+1]??1e9;
+      const kin=P(t,a,a+.5,eout),kout=P(t,b,b+.4);
+      s.style.opacity=kin*(1-kout); s.style.transform=`translateX(${(1-kin)*40-kout*40}px)`;
+      slB[i].forEach((el,j)=>rise(el,t,a+.15+j*.13,.55,14));});
+    E.slStroke.style.strokeDashoffset=1-P(t,SLAT[0]+.55,SLAT[0]+1.5);
+    E.tlLine.style.strokeDashoffset=1-P(t,SLAT[1]+.35,SLAT[1]+1.3);
+    milestones.forEach((m,j)=>rise(m,t,SLAT[1]+.45+j*.28,.5,12));
+    tiles.forEach((m,j)=>rise(m,t,SLAT[2]+.4+j*.16,.55,16));
+    const idx=t<SLAT[1]?0:t<SLAT[2]?1:2;
+    setText(E.fcount,`${idx+1} / 6`); E.fprog.style.width=`${(idx+1)/6*100}%`;
+    E.pdfBtn.classList.toggle('hov',t>=43.5&&t<45.0);
+
+    /* Ada shares the page: the people the assistant added are there */
+    const so=win(t,45.95,46.25,48.0,48.35);
+    E.sharePop.style.opacity=so; E.sharePop.style.transform=`translateY(${(1-so)*-10}px)`;
+    E.shareBtn.classList.toggle('on',t>=45.9&&t<48.2);
+    E.shareBtn.style.transform=`scale(${1-.06*bump(t,45.85,46.05)})`;
+    const copied=t>=47.25;
+    E.copyBtn.classList.toggle('done',copied); setText(E.copyTxt,copied?'Link copied':'Copy link');
+    E.copyBtn.style.transform=`scale(${1-.06*bump(t,47.15,47.35)})`;
+
     /* cursors: read all positions first, then write */
-    const pA=follow(t,PORTRAIT?ADA_P:ADA),pL=follow(t,PORTRAIT?ALAN_P:ALAN),pG=follow(t,PORTRAIT?GRACE_P:GRACE);
-    E.curAda.style.opacity=win(t,6.4,6.75,9.0,9.5);
-    E.curAda.style.transform=`translate(${pA.x}px,${pA.y}px) scale(${1-.12*bump(t,7.35,7.55)-.12*bump(t,8.3,8.5)})`;
-    ring(E.curAda,t,[7.35,8.3]);
-    E.curAlan.style.opacity=P(t,9.2,9.5);
+    const pA=follow(t,PORTRAIT?ADA_P:ADA),pL=follow(t,PORTRAIT?ALAN_P:ALAN),pG=follow(t,PORTRAIT?GRACE_P:GRACE),p1=follow(t,PORTRAIT?U1_P:U1),p2=follow(t,PORTRAIT?U2_P:U2);
+    E.curAda.style.opacity=win(t,6.4,6.75,9.0,9.5)+(PORTRAIT?0:win(t,39.2,39.5,40.9,41.3))+win(t,45.0,45.3,48.1,48.5);
+    E.curAda.style.transform=`translate(${pA.x}px,${pA.y}px) scale(${1-.12*bump(t,7.35,7.55)-.12*bump(t,8.3,8.5)-.12*bump(t,40.5,40.7)-.12*bump(t,45.85,46.05)-.12*bump(t,47.15,47.35)})`;
+    ring(E.curAda,t,PORTRAIT?[7.35,8.3,45.9,47.2]:[7.35,8.3,40.5,45.9,47.2]);
+    E.curAlan.style.opacity=P(t,9.2,9.5)*(1-P(t,28.9,29.3));
     E.curAlan.style.transform=`translate(${pL.x}px,${pL.y}px)`; ring(E.curAlan,t,[9.92]);
-    E.curGrace.style.opacity=P(t,9.45,9.75);
+    E.curGrace.style.opacity=P(t,9.45,9.75)*(1-P(t,28.9,29.3));
     E.curGrace.style.transform=`translate(${pG.x}px,${pG.y}px) scale(${1-.12*bump(t,10.5,10.7)-.12*bump(t,22.72,22.92)})`;
     ring(E.curGrace,t,[10.52,22.72]);
+    E.curU1.style.opacity=win(t,41.3,41.6,48.0,48.5);
+    E.curU1.style.transform=`translate(${p1.x}px,${p1.y}px) scale(${1-.12*bump(t,42.85,43.05)-.12*bump(t,44.55,44.75)})`;
+    ring(E.curU1,t,[42.88,44.58]);
+    E.curU2.style.opacity=win(t,41.7,42.0,48.0,48.5);
+    E.curU2.style.transform=`translate(${p2.x}px,${p2.y}px)`;
   }
 
-  /* ---- 3 · assistant chat ---- */
-  const cin=P(t,12.15,13.0,eout),cout=P(t,19.9,20.6);
-  chat.style.opacity=cin*(1-cout);
-  chat.style.transform=PORTRAIT?`translateY(${(1-cin)*1300+cout*160}px)`:`translateX(${(1-cin)*680+cout*120}px)`;
-  if(cin>0&&cout<1){
-    const n=Math.floor(P(t,13.2,15.8,lin)*PROMPT.length), sent=t>=16;
-    setText(E.typed,sent?'':PROMPT.slice(0,n));
-    E.ph.hidden=!(n===0||sent);
-    E.tcaret.style.opacity=(t>=13.2&&t<15.8)?1:(Math.floor(t*2.2)%2?0:1);
-    E.send.classList.toggle('on',n>0&&!sent);
-    rise(E.mUser,t,16.0,.45,14);
-    rise(E.aiWho,t,16.35,.4,8);
-    E.think.style.opacity=win(t,16.4,16.55,16.95,17.1);
-    [...E.think.children].forEach((d,i)=>d.style.transform=`translateY(${-4*Math.max(0,Math.sin(t*9-i*.9))}px)`);
-    rise(E.tool,t,16.95,.45,10);
-    const st=(a,b)=>t<a?'':(t<b?'run':'done');
-    E.ic1.className='ic '+st(17.0,17.75); E.ic2.className='ic '+st(17.85,18.8);
-    [E.ic1,E.ic2].forEach(ic=>ic.style.transform=ic.classList.contains('run')?`rotate(${t*420}deg)`:'none');
-    E.arr.style.color=t>=17.75?'var(--brand)':'';
-    rise(E.r1,t,17.8,.4,6); rise(E.r2,t,18.85,.4,6);
-    rise(E.aiText,t,19.05,.5,10);
-  }
+  /* ---- 3, 5 · the assistant ---- */
+  CHATS.forEach(C=>renderChat(C,t));
 
-  /* ---- 5 · trust ---- */
-  const s5o=win(t,30.0,30.7,35.4,36.0);
-  s5.style.opacity=s5o; s5.style.transform=`scale(${lerp(.985,1,P(t,30,30.8))*lerp(1,.99,P(t,35.4,36))})`;
+  /* ---- 6 · trust ---- */
+  const s5o=win(t,49.6,50.3,55.0,55.6);
+  s5.style.opacity=s5o; s5.style.transform=`scale(${lerp(.985,1,P(t,49.6,50.4))*lerp(1,.99,P(t,55.0,55.6))})`;
   if(s5o>0){
-    rise(E.eye,t,30.2,.55,12); rise(E.s5t,t,30.35,.6,16);
-    cards.forEach((c,i)=>rise(c,t,30.65+i*.16,.65,26));
-    rise(E.wl,t,31.45,.5,10); pills.forEach((p,i)=>rise(p,t,31.55+i*.12,.5,10));
+    rise(E.eye,t,49.8,.55,12); rise(E.s5t,t,49.95,.6,16);
+    cards.forEach((c,i)=>rise(c,t,50.25+i*.16,.65,26));
+    rise(E.wl,t,51.05,.5,10); pills.forEach((p,i)=>rise(p,t,51.15+i*.12,.5,10));
   }
 
-  /* ---- 6 · end card ---- */
-  const s6o=win(t,36.0,36.45,39.2,39.9);
+  /* ---- 7 · end card (it stays: the animation stops on it) ---- */
+  const s6o=P(t,55.6,56.05);
   s6.style.opacity=s6o;
-  if(s6o>0){ wmIn(endCh,t,36.15,.05,.6,38); rise(E.endUrl,t,36.9,.6,14); rise(E.endGh,t,37.2,.6,14); }
+  if(s6o>0){ wmIn(endCh,t,55.75,.05,.6,38); rise(E.endUrl,t,56.5,.6,14); rise(E.endGh,t,56.8,.6,14); }
 }
 
-/* ---- clock, controls ---- */
+/* ---- clock ---- */
 const stage=$('stage');
 function fit(){
   if(PHONE){
@@ -710,28 +995,28 @@ addEventListener('resize',fit); addEventListener('orientationchange',fit); fit()
 
 let t=0,playing=true,last=0,started=false;
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-const fmt=s=>`0:${String(Math.floor(s)).padStart(2,'0')}`;
-function ui(){if(!playing)document.body.classList.remove('idle');}
 function tick(now){
   const dt=Math.min(.1,(now-(last||now))/1000);last=now;
-  if(playing&&started) t=(t+dt)%DUR;
+  if(playing&&started){t=Math.min(DUR,t+dt); if(t>=DUR) playing=false;}
   render(t);
   requestAnimationFrame(tick);
 }
-function toggle(){playing=!playing;ui();poke();}
 addEventListener('keydown',e=>{
-  if(e.code==='Space'){e.preventDefault();toggle();}
-  else if(e.key==='ArrowRight'){t=(t+5)%DUR;} else if(e.key==='ArrowLeft'){t=(t-5+DUR)%DUR;}
+  if(e.code==='Space'){e.preventDefault();if(!playing&&t>=DUR)t=0;playing=!playing;}
+  else if(e.key==='ArrowRight'){t=Math.min(DUR,t+5);} else if(e.key==='ArrowLeft'){t=Math.max(0,t-5);}
   else if(e.key==='Home'||e.key==='0'){t=0;}
-  else if('123456'.includes(e.key)&&e.key.length===1){t=[0,5,12,20,30,36][+e.key-1];}
-  poke();
+  else if('12345678'.includes(e.key)&&e.key.length===1){t=[0,5,12,20,29.3,39.5,49.6,55.6][+e.key-1];}
 });
-let idleT;function poke(){document.body.classList.remove('idle');clearTimeout(idleT);idleT=setTimeout(()=>{if(playing)document.body.classList.add('idle');},2200);}
-addEventListener('mousemove',poke);addEventListener('pointerdown',poke);
-window.demo={seek:s=>{t=((s%DUR)+DUR)%DUR;render(t);},play:()=>{playing=true;ui();},pause:()=>{playing=false;ui();}};
+const seek=s=>{t=clamp(s,0,DUR);render(t);};
+const play=()=>{if(t>=DUR)t=0;started=true;last=0;playing=true;};
+const pause=()=>{playing=false;};
+window.demo={seek,play,pause};
+// The time bar of Collaborators moves through it with this handle
+window.collaboratorsTimeline={duration:DUR,seek,play,pause,
+  get time(){return t;},get playing(){return playing&&started;}};
 
 if(reduce){playing=false;t=27.5;}
-ui();poke();render(t);requestAnimationFrame(tick);
+render(t);requestAnimationFrame(tick);
 const go=()=>{if(!started){started=true;last=0;}};
 (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(go);setTimeout(go,1500);
 })();
