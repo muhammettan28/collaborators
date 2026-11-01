@@ -839,6 +839,13 @@ class Base(Configuration):
     COLLABORATORS_EMAIL_INVITATIONS = values.BooleanValue(
         True, environ_name="COLLABORATORS_EMAIL_INVITATIONS", environ_prefix=None
     )
+    # Invitations by email someone sends one person less than this many
+    # seconds apart go out as one email, this long after the last one
+    COLLABORATORS_INVITATION_BUNDLE_DELAY = values.PositiveIntegerValue(
+        120,
+        environ_name="COLLABORATORS_INVITATION_BUNDLE_DELAY",
+        environ_prefix=None,
+    )
     # Only people sharing a workspace, space or page find, see and invite
     # each other by name, unless one lets everyone find them (their profile)
     COLLABORATORS_PEOPLE_PRIVACY = values.BooleanValue(

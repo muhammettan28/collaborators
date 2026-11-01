@@ -2,7 +2,7 @@
 
 from django.conf import settings
 
-from core import models
+from core import invitations, models
 from core.utils.analytics import PosthogEventName, posthog_capture
 
 from impress.celery_app import app
@@ -45,3 +45,12 @@ def send_mention_notification_mail(mention_id):
         },
         document=mention.document,
     )
+
+
+@app.task
+def send_invitation_bundle(bundle_id, version):
+    """
+    Collaborators: the email of the invitations one person sent another
+    within a few minutes, once no other joined them for that long.
+    """
+    invitations.send_bundle(bundle_id, version)

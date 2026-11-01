@@ -57,6 +57,16 @@
             {{message|capfirst}}
             <a href="{{link}}">{{link_label}}</a>
           </mj-text>
+          <!-- Collaborators: invitations sent together, each with its logo -->
+          <mj-raw>{% if invitations %}</mj-raw>
+          <mj-text font-family="Inter, sans-serif">
+            {% for invitation in invitations %}
+            <p style="margin:8px 0;">
+              {% if invitation.logo %}<img src="{{invitation.logo}}" width="32" alt="" style="vertical-align:middle;margin-right:10px;" />{% endif %}{{invitation.label|capfirst}}
+            </p>
+            {% endfor %}
+          </mj-text>
+          <mj-raw>{% endif %}</mj-raw>
           <mj-button
             href="{{link}}"
             background-color="#000091"

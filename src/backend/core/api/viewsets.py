@@ -3121,14 +3121,12 @@ class InvitationViewset(
             )
         invitation = serializer.save()
 
-        # Collaborators: the email leads to the page accepting the invitation
-        invitation.document.send_invitation_email(
-            invitation.email,
-            invitation.role,
+        # Collaborators: the email leads to the page accepting the invitation,
+        # with the others sent to the same person within a few minutes
+        invitations.queue_invitation_mail(
+            invitation,
             self.request.user,
             self.request.user.language or settings.LANGUAGE_CODE,
-            link=invitations.invite_link(invitations.DOCUMENT, invitation),
-            logo_img=invitations.invite_logo_url(invitations.DOCUMENT, invitation),
         )
 
 
