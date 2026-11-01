@@ -31,6 +31,9 @@ and this project adheres to
 - 💄(frontend) an animation with its time bar waits for Play
 - 💄(frontend) presentation comes first in the / menu
 - 💬(collaborators) groups of people are called "user groups" everywhere
+- 💄(mail) the brand's name atop emails holds on one row, even on phones
+- 💄(mail) emails end with the tagline led by the logo, its emojis upright
+- 💄(mail) slim side margins on screens narrower than 500px
 
 ### Fixed
 

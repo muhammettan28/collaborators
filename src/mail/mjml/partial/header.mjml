@@ -41,4 +41,22 @@
             padding: 0!important;
         }
     </mj-style>
+    <mj-style>
+        /* Collaborators: on screens narrower than 500px, one slim margin on
+           each side instead of the card's, the section's and each block's,
+           so that the text keeps most of the width (and lines up with the
+           logo) */
+        @media only screen and (max-width:499px) {
+            .wrapper > table > tbody > tr > td {
+                padding-left: 16px !important;
+                padding-right: 16px !important;
+            }
+
+            .content > table > tbody > tr > td,
+            .content .mj-column-per-100 > table > tbody > tr > td {
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+            }
+        }
+    </mj-style>
 </mj-head>

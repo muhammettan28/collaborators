@@ -23,4 +23,4 @@ mv "${DOCS_DIR_MAILS}"html/*.txt "${DOCS_DIR_MAILS}"text/;
 
 # Collaborators: plain text can't show the brand's name in its logo's
 # style: the text version names it plainly
-perl -pi -e 's/ with brandname=brandname\|wordmark//g' "${DOCS_DIR_MAILS}"text/*.txt;
+perl -pi -e 's/\|wordmark//g' "${DOCS_DIR_MAILS}"text/*.txt;

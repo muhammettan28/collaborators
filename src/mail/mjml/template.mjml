@@ -10,7 +10,8 @@
     <mj-wrapper css-class="wrapper" padding="5px 25px 0px 25px">
       <mj-section css-class="wrapper-logo">
         <mj-column>
-          <!-- A logo image when one is configured, else the brand name as a text wordmark -->
+          <!-- A logo image when one is configured, else the brand name as a text wordmark.
+               Collaborators: small enough to hold on one row of a phone screen -->
           <mj-raw>{% if logo_img %}</mj-raw>
           <mj-image
             src="{{logo_img}}"
@@ -22,17 +23,21 @@
           <mj-text
             align="left"
             font-family="Inter, sans-serif"
-            font-size="28px"
+            font-size="16px"
             font-weight="800"
             font-style="italic"
             color="#4747A3"
           >
-            {{brandname}}
+            {{brandname|wordmark}}
           </mj-text>
           <mj-raw>{% endif %}</mj-raw>
         </mj-column>
       </mj-section>
-      <mj-section mj-class="bg--white-100" padding="0px 20px 60px 20px">
+      <mj-section
+        mj-class="bg--white-100"
+        css-class="content"
+        padding="0px 20px 60px 20px"
+      >
         <mj-column>
           <!-- Collaborators: the logo of the workspace, space or page one is invited to -->
           <mj-raw>{% if item_logo_img %}</mj-raw>
@@ -68,19 +73,12 @@
             width="30%"
             align="center"
           />
+          <!-- Collaborators: the tagline opens with the brand's name in its
+               logo's style (plain in the text version, see bin/html-to-plain-text) -->
           <mj-text font-family="Inter, sans-serif">
-            {% blocktrans %}
-              Collaborators, where teams write, organise and share knowledge together.
+            {% blocktrans with brandname=brandname|default:"CO✍️✍️ABORATORS"|wordmark %}
+              {{brandname}}, where teams organize and share knowledge together.
             {% endblocktrans %}
-          </mj-text>
-          <!-- Signature. Collaborators: the brand's name in its logo's style
-               (plain in the text version, see bin/html-to-plain-text) -->
-          <mj-text font-family="Inter, sans-serif">
-            <p>
-              {% blocktrans with brandname=brandname|wordmark %}
-                Brought to you by {{brandname}}
-              {% endblocktrans %}
-            </p>
           </mj-text>
         </mj-column>
       </mj-section>

@@ -466,7 +466,7 @@ def test_api_document_invitations_create_email_from_senders_language():
     assert f"{user.full_name} a partagé un document avec vous !" in email_content
     # Collaborators replaced the Docs tagline; it has no French translation yet
     assert (
-        "Collaborators, where teams write, organise and share knowledge together."
+        "CO✍️✍️ABORATORS, where teams organize and share knowledge together."
         in email_content
     )
 
