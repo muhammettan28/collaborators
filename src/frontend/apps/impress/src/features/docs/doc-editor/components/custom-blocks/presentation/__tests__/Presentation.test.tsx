@@ -65,6 +65,17 @@ describe('the time bar', () => {
     expect(withTimeline('<p>unsealed</p>')).toBe('<p>unsealed</p>');
   });
 
+  test('held, its animations wait from the first frame for Play', () => {
+    const page = sealedDocument('<html><head><script>own()</script>');
+    const held = withTimeline(page, true);
+    const pause = held.indexOf('animation-play-state:paused!important');
+    expect(pause).toBeGreaterThan(held.indexOf('no-referrer'));
+    expect(pause).toBeLessThan(held.indexOf('own()'));
+    expect(held).toContain('var held = true');
+    expect(withTimeline(page)).not.toContain('<style data-collaborators-hold>');
+    expect(withTimeline(page)).toContain('var held = false');
+  });
+
   test('says minutes and seconds', () => {
     expect(clockTime(0)).toBe('0:00');
     expect(clockTime(65.7)).toBe('1:05');
