@@ -26,6 +26,7 @@ and this project adheres to
 - ⬆️(yhub) upgrade @y/hub to 0.10.1 #2853
 - ♿️(frontend) allow opening the home button in a new tab #2839
 - 💄(frontend) slides: first, back, play, forward and last, 3 s per slide
+- 💄(frontend) a presentation's time bar and slide buttons go below it
 
 ### Fixed
 

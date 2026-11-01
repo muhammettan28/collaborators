@@ -16,6 +16,41 @@ export const ASPECT_RATIOS = {
 
 export type AspectRatio = keyof typeof ASPECT_RATIOS;
 
+/**
+ * A presentation and the bar under it (its time bar, or the buttons of its
+ * slides): the bar is added below, the presentation keeps all its shape.
+ * Full screen (or filling the page), the presentation takes what the bar
+ * leaves.
+ */
+export const shownCss = (fill: boolean) => css`
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  ${fill ? 'height: 100%;' : ''}
+  background: var(--c--contextuals--background--surface--tertiary);
+  border-radius: ${fill ? '0' : '6px'};
+  overflow: hidden;
+  &:fullscreen {
+    border-radius: 0;
+  }
+  &:fullscreen > [data-presentation-content] {
+    flex: 1;
+    min-height: 0;
+    aspect-ratio: auto;
+  }
+`;
+
+/** The presentation itself, in its shape */
+export const contentCss = (aspectRatio: AspectRatio, fill: boolean) => css`
+  position: relative;
+  width: 100%;
+  ${
+    fill
+      ? 'flex: 1; min-height: 0;'
+      : `aspect-ratio: ${ASPECT_RATIOS[aspectRatio]};`
+  }
+`;
+
 /** Once the element has come near the screen (then for good). */
 const useNearScreen = () => {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -93,65 +128,56 @@ export const PresentationFrame = forwardRef<
   const offline = typeof navigator !== 'undefined' && !navigator.onLine;
 
   return (
-    <Box
-      ref={setRefs}
-      $width="100%"
-      $position="relative"
-      $css={css`
-        ${fill ? 'height: 100%;' : `aspect-ratio: ${ASPECT_RATIOS[aspectRatio]};`}
-        background: var(--c--contextuals--background--surface--tertiary);
-        border-radius: ${fill ? '0' : '6px'};
-        overflow: hidden;
-      `}
-      data-testid="presentation-frame"
-    >
-      {data !== undefined ? (
-        <iframe
-          ref={iframe}
-          title={presentation.title || t('Presentation')}
-          srcDoc={withTimeline(
-            sealedDocument(
-              data,
-              presentation.source === 'link' ? presentation.link : null,
-            ),
-          )}
-          // scripts run, in a sandbox of their own: no allow-same-origin
-          sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-          allow="fullscreen"
-          referrerPolicy="no-referrer"
-          style={{
-            width: '100%',
-            height: '100%',
-            border: 0,
-            display: 'block',
-            background: '#fff',
-          }}
-        />
-      ) : (
-        <Box $align="center" $justify="center" $height="100%" $padding="md">
-          {isLoading && <Loading />}
-          {!presentation.has_content && (
-            <Text $variation="secondary" $textAlign="center">
-              {t('This presentation is waiting for its file.', {
-                description:
-                  'Shown in a presentation published by an AI assistant before its file was uploaded',
-              })}
-            </Text>
-          )}
-          {error && (
-            <Text $variation="secondary" $textAlign="center">
-              {offline
-                ? t('This presentation needs a connection.', {
-                    description: 'Shown in a presentation while offline',
-                  })
-                : error.message ||
-                  t('This presentation can’t be shown right now.', {
-                    description: 'Shown when a presentation fails to load',
-                  })}
-            </Text>
-          )}
-        </Box>
-      )}
+    <Box ref={setRefs} $css={shownCss(fill)} data-testid="presentation-frame">
+      <Box $css={contentCss(aspectRatio, fill)} data-presentation-content>
+        {data !== undefined ? (
+          <iframe
+            ref={iframe}
+            title={presentation.title || t('Presentation')}
+            srcDoc={withTimeline(
+              sealedDocument(
+                data,
+                presentation.source === 'link' ? presentation.link : null,
+              ),
+            )}
+            // scripts run, in a sandbox of their own: no allow-same-origin
+            sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+            allow="fullscreen"
+            referrerPolicy="no-referrer"
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 0,
+              display: 'block',
+              background: '#fff',
+            }}
+          />
+        ) : (
+          <Box $align="center" $justify="center" $height="100%" $padding="md">
+            {isLoading && <Loading />}
+            {!presentation.has_content && (
+              <Text $variation="secondary" $textAlign="center">
+                {t('This presentation is waiting for its file.', {
+                  description:
+                    'Shown in a presentation published by an AI assistant before its file was uploaded',
+                })}
+              </Text>
+            )}
+            {error && (
+              <Text $variation="secondary" $textAlign="center">
+                {offline
+                  ? t('This presentation needs a connection.', {
+                      description: 'Shown in a presentation while offline',
+                    })
+                  : error.message ||
+                    t('This presentation can’t be shown right now.', {
+                      description: 'Shown when a presentation fails to load',
+                    })}
+              </Text>
+            )}
+          </Box>
+        )}
+      </Box>
       {timeBar && data !== undefined && timeline.seconds > 0 && (
         <TimeBar timeline={timeline} send={send} />
       )}

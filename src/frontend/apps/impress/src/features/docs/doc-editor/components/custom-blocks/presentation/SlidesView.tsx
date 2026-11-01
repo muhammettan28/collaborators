@@ -4,7 +4,7 @@ import { css } from 'styled-components';
 
 import { Box, Icon, Loading, Text } from '@/components';
 
-import { ASPECT_RATIOS, type AspectRatio } from './PresentationFrame';
+import { type AspectRatio, contentCss, shownCss } from './PresentationFrame';
 import { Presentation, usePresentationSlides } from './api';
 
 type PdfModule = typeof import('pdfjs-dist');
@@ -27,10 +27,7 @@ const loadPdfjs = async (): Promise<PdfModule> => {
 };
 
 const controlsCss = css`
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex-shrink: 0;
   background: rgba(0, 0, 0, 0.6);
   color: #fff;
   & button {
@@ -204,14 +201,7 @@ export const SlidesView = forwardRef<
   return (
     <Box
       ref={ref}
-      $width="100%"
-      $position="relative"
-      $css={css`
-        ${fill ? 'height: 100%;' : `aspect-ratio: ${ASPECT_RATIOS[aspectRatio]};`}
-        background: var(--c--contextuals--background--surface--tertiary);
-        border-radius: ${fill ? '0' : '6px'};
-        overflow: hidden;
-      `}
+      $css={shownCss(fill)}
       tabIndex={0}
       onKeyDown={(event) => {
         if (event.key === 'ArrowRight' || event.key === 'PageDown') {
@@ -232,10 +222,10 @@ export const SlidesView = forwardRef<
     >
       <Box
         ref={area}
-        $position="absolute"
         $align="center"
         $justify="center"
-        $css="inset: 0 0 32px 0;"
+        $css={contentCss(aspectRatio, fill)}
+        data-presentation-content
       >
         {pdf ? (
           <canvas

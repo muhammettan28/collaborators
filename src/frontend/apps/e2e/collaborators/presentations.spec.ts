@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { type Page, expect, test } from '@playwright/test';
+import { type Locator, type Page, expect, test } from '@playwright/test';
 import { PDFParse } from 'pdf-parse';
 
 /**
@@ -76,6 +76,15 @@ const openPage = async (page: Page, edit = true, id = pageId) => {
 
 const frame = (page: Page) =>
   page.frameLocator('[data-testid="presentation-frame"] iframe').first();
+
+/** The bar is added below the presentation, which keeps its whole shape. */
+const expectBelow = async (bar: Locator, shown: Locator) => {
+  const content = shown.locator('[data-presentation-content]');
+  const barBox = (await bar.boundingBox())!;
+  const contentBox = (await content.boundingBox())!;
+  expect(barBox.y).toBeGreaterThanOrEqual(contentBox.y + contentBox.height - 1);
+  expect(contentBox.width / contentBox.height).toBeCloseTo(16 / 9, 1);
+};
 
 const openMenu = async (page: Page) => {
   await page
@@ -455,6 +464,7 @@ test('a presentation with its PDF: slides, its own PDF, kept in step', async ({
   await expect(slides.getByLabel('Slide 1 of 3')).toBeVisible({
     timeout: 30_000,
   });
+  await expectBelow(slides.getByTestId('presentation-slides-controls'), slides);
   await slides.getByRole('button', { name: 'Next slide' }).click();
   await expect(slides.getByText('2 / 3')).toBeVisible();
   await slides.getByRole('button', { name: 'Last slide' }).click();
@@ -571,6 +581,7 @@ test('an animation gets a time bar when its editor turns it on', async ({
   await page.getByText('Show the time bar').click();
   await expect(bar).toBeVisible();
   await expect(bar.getByText('/ 0:06')).toBeVisible();
+  await expectBelow(bar, page.getByTestId('presentation-frame'));
 
   // paused, then moved to its middle: the animation is there
   const pause = bar.getByRole('button', { name: 'Pause' });
