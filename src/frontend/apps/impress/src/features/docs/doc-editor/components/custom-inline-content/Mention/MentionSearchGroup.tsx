@@ -48,7 +48,7 @@ export const MentionSearchGroup = ({
       kind: 'group' as const,
       id: team.team,
       label: team.label,
-      detail: team.workspace.name,
+      detail: team.place.name,
       memberCount: team.member_count,
     })),
     ...users.map((user) => ({

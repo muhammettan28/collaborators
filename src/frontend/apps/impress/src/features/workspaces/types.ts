@@ -69,7 +69,10 @@ export enum GroupKind {
 
 export interface Group {
   id: string;
-  workspace: string;
+  /** A user group belongs to a workspace, or to a page or a space */
+  workspace: string | null;
+  /** The page or space of a user group for mentions only */
+  document: string | null;
   name: string;
   kind: GroupKind;
   description: string;
@@ -116,11 +119,20 @@ export enum SpaceVisibility {
 }
 
 /** A group, or all members of a workspace, that a role can be granted to. */
+/** Where a user group belongs: a workspace, or a page or a space */
+export interface TeamPlace {
+  kind: 'workspace' | 'page' | 'space';
+  id: string;
+  name: string;
+}
+
 export interface GrantableTeam {
   team: string;
   label: string;
   kind: 'workspace' | GroupKind;
-  workspace: { id: string; name: string };
+  /** None for the user groups of a page or a space */
+  workspace: { id: string; name: string } | null;
+  place: TeamPlace;
   member_count: number;
 }
 

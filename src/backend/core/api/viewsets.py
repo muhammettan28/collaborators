@@ -2944,6 +2944,15 @@ class DocumentAccessViewSet(
 
         # Collaborators: only people one may see; the others by email
         check_can_find(self.request.user, serializer.validated_data.get("user"))
+        # Collaborators: the user groups of a page or a space are for mentions
+        kind, obj_id = models.parse_team(serializer.validated_data.get("team"))
+        if (
+            kind == models.TEAM_GROUP
+            and models.Group.objects.filter(id=obj_id, document__isnull=False).exists()
+        ):
+            raise drf.exceptions.ValidationError(
+                {"team": _("This user group is for mentions only.")}
+            )
 
         access = serializer.save(document_id=self.kwargs["resource_id"])
 

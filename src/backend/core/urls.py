@@ -67,6 +67,11 @@ document_related_router.register(
     basename="invitations",
 )
 document_related_router.register(
+    "user-groups",
+    workspaces.DocumentUserGroupViewSet,
+    basename="document_user_groups",
+)
+document_related_router.register(
     "threads",
     viewsets.ThreadViewSet,
     basename="threads",

@@ -249,6 +249,49 @@ export function useGroupMutations(workspaceId: string) {
   };
 }
 
+// -- User groups of a page or a space, for mentions only
+
+export function useDocUserGroups(docId: string) {
+  return useQuery<Group[], APIError>({
+    queryKey: [KEY_LIST_GROUP, 'document', docId],
+    queryFn: () =>
+      request<Group[]>(
+        `documents/${docId}/user-groups/`,
+        'Failed to get the groups',
+      ),
+    enabled: !!docId,
+  });
+}
+
+export function useDocUserGroupMutations(docId: string) {
+  const queryClient = useQueryClient();
+  const onSuccess = () => {
+    void queryClient.invalidateQueries({
+      queryKey: [KEY_LIST_GROUP, 'document', docId],
+    });
+    // The @ menu offers them
+    void queryClient.invalidateQueries({ queryKey: [KEY_LIST_GRANTABLE_TEAM] });
+  };
+  const url = `documents/${docId}/user-groups/`;
+
+  return {
+    create: useMutation<Group, APIError, { name: string }>({
+      mutationFn: (data) =>
+        request(url, 'Failed to create the group', jsonInit('POST', data)),
+      onSuccess,
+    }),
+    remove: useMutation<void, APIError, { groupId: string }>({
+      mutationFn: ({ groupId }) =>
+        request(
+          `${url}${groupId}/`,
+          'Failed to delete the group',
+          jsonInit('DELETE'),
+        ),
+      onSuccess,
+    }),
+  };
+}
+
 export function useGroupMembers(groupId: string) {
   return useQuery<GroupMembership[], APIError>({
     queryKey: [KEY_LIST_GROUP_MEMBER, groupId],

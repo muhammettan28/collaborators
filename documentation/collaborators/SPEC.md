@@ -21,7 +21,7 @@ Legend for "Docs today": ✅ already there · 🟡 partly there · ❌ to build.
 | **Shared space** | A space owned by one workspace (its **home**) and linked into others. |
 | **Independent space / page** | A space or page owned by a collaborator instead of a workspace. |
 | **Page** | A document: blocks, sub-pages, Loop tables. |
-| **User group** | A set of collaborators managed by workspace admins: a **Team** (task based) or an **Organization** (company, institution). Called "user groups" everywhere in the interface (2026-11-01); still `Group` in the code, the API (`/groups/`) and the page content (`kind: "group"`). |
+| **User group** | A set of collaborators managed by workspace admins: a **Team** (task based) or an **Organization** (company, institution). Pages and spaces have their own user groups too, for mentions only (F5). Called "user groups" everywhere in the interface (2026-11-01); still `Group` in the code, the API (`/groups/`) and the page content (`kind: "group"`). |
 
 ```
 Collaborators  (collaborators.community)
@@ -192,6 +192,11 @@ See **section 3**: it is the largest single piece of work.
 - Groups work everywhere a person works: @mentions (pages, comments, **table cells**), Person columns in Loop tables, sharing and permissions, and filters ("Assigned to me" includes rows assigned to my groups).
 - A group chip shows its name; hovering lists its current members.
 - In a Shared space, each linked workspace grants access to its own groups.
+- **User groups of a page or a space** (2026-11-01), inside or outside any workspace, from the "User groups" item of its menu:
+  - its owners and administrators create them; the creator manages theirs, like them; anyone one can find can be in one;
+  - they are **for mentions only**: mentioning one notifies its members who can see the page, and they never give access (they can't be shared with, and they are not in `User.teams`);
+  - they are offered in the @ menu on their page and every page below it, the closest first, and nowhere else (mentioned elsewhere, they notify no one);
+  - they stay attached to their page or space (`Group.document`), so they follow it when it moves into a space, a space moves into a workspace, or it becomes independent again.
 
 **Docs today:** `DocumentAccess` already accepts a `team` instead of a user, and `User.teams` is a hook that currently returns an empty list.
 
@@ -209,7 +214,7 @@ See **section 3**: it is the largest single piece of work.
 
 **Requirements**
 - A collaborator can create spaces and pages that belong to no workspace.
-- They are shared person by person (groups become available once the content joins a workspace).
+- They are shared person by person (workspace groups become available once the content joins a workspace; their own user groups, for mentions, from the start, see F5).
 - A "My spaces & pages" section in the sidebar.
 - Moving rules as in section 1.
 

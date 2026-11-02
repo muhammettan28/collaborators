@@ -16,6 +16,6 @@ export const teamAsUser = (team: GrantableTeam): User => ({
   id: `${TEAM_MEMBER_PREFIX}${team.team}`,
   full_name: team.label,
   short_name: team.label,
-  email: team.workspace.name,
+  email: team.place.name,
   is_first_connection: false,
 });

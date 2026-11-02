@@ -21,6 +21,7 @@ describe('GroupHoverCard', () => {
       name: 'Q4 Launch',
       known: true,
       workspace: { id: 'w-1', name: 'Acme' },
+      place: { kind: 'workspace', id: 'w-1', name: 'Acme' },
       member_count: 3,
       members: [
         {
