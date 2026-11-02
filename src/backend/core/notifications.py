@@ -37,6 +37,20 @@ def team_members(team):
     return models.User.objects.none()
 
 
+def can_mention_team_in(team, document):
+    """
+    The user groups of a page or a space are mentioned on it and the pages
+    below it only; every other team anywhere.
+    """
+    kind, obj_id = models.parse_team(team)
+    if kind != models.TEAM_GROUP:
+        return True
+    group = models.Group.objects.filter(id=obj_id).select_related("document").first()
+    if group is None or group.document_id is None:
+        return True
+    return document.path.startswith(group.document.path)
+
+
 def can_be_notified(document, user, in_thread):
     """
     Comments need a commenting role to be seen; the page and its tables only
@@ -108,13 +122,17 @@ def notify(mention, inbox=None):
 
 def mention_team(document, actor, team, anchor_id, **options):
     """
-    Mention every member of a group who can see the document. Options:
+    Mention every member of a group who can see the document (the user
+    groups of a page or a space only there and below, see
+    `can_mention_team_in`). Options:
     `thread` (a mention in a comment), `reason` ("mention" or "assignment")
     and `inbox` (see `notify`).
     """
     thread = options.get("thread")
     reason = options.get("reason", "mention")
     mentions = []
+    if not can_mention_team_in(team, document):
+        return mentions
     for member_id in team_members(team).distinct().values_list("pk", flat=True):
         # Fresh instance: the role check reads the member's own teams
         member = models.User.objects.get(pk=member_id)

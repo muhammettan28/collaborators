@@ -65,7 +65,7 @@ import { MoveMembersModal } from './MoveMembersModal';
 import { UserPicker } from './UserPicker';
 
 /** Turn an API error into a toast. */
-const useErrorToast = () => {
+export const useErrorToast = () => {
   const { toast } = useToastProvider();
   const { t } = useTranslation();
   return (error?: { cause?: string[] }) =>
@@ -107,7 +107,7 @@ const Section = ({
   </Box>
 );
 
-const Row = ({ children }: PropsWithChildren) => (
+export const Row = ({ children }: PropsWithChildren) => (
   <Box
     $direction="row"
     $align="center"
@@ -125,7 +125,7 @@ const Row = ({ children }: PropsWithChildren) => (
   </Box>
 );
 
-const IconButton = ({
+export const IconButton = ({
   icon,
   label,
   onClick,
@@ -502,15 +502,16 @@ const MembersSection = ({ workspace }: { workspace: Workspace }) => {
 
 // -- Groups
 
-const GroupMembers = ({
+export const GroupMembers = ({
   group,
   otherGroups,
   workspaceMemberIds,
 }: {
   group: Group;
-  /** The workspace's other groups, to move or copy people into */
+  /** The other groups of the same place, to move or copy people into */
   otherGroups: Group[];
-  workspaceMemberIds: string[];
+  /** Only they join a workspace's groups; anyone joins a page's */
+  workspaceMemberIds?: string[];
 }) => {
   const { t } = useTranslation();
   const onError = useErrorToast();
@@ -530,16 +531,24 @@ const GroupMembers = ({
     >
       {canManage && (
         <UserPicker
-          label={t('Add a workspace member to {{name}}', {
-            description: 'Label of the search adding a group member',
-            name: group.name,
-          })}
+          label={
+            workspaceMemberIds
+              ? t('Add a workspace member to {{name}}', {
+                  description: 'Label of the search adding a group member',
+                  name: group.name,
+                })
+              : t('Add someone to {{name}}', {
+                  description:
+                    'Label of the search adding a member to a user group of a page',
+                  name: group.name,
+                })
+          }
           excludeIds={[
             ...members.map((member) => member.user.id),
             // Only workspace members can join its groups
           ]}
           onPick={(picked) => {
-            if (!workspaceMemberIds.includes(picked.id)) {
+            if (workspaceMemberIds && !workspaceMemberIds.includes(picked.id)) {
               onError({
                 cause: [
                   t('Add {{name}} to the workspace first.', {

@@ -7,6 +7,7 @@ import { APIError, errorCauses, fetchAPI } from '@/api';
 import { Box, Icon, StyledLink, Text } from '@/components';
 import { UserAvatar } from '@/features/auth';
 import { profileHref } from '@/features/profile/api';
+import { TeamPlace } from '@/features/workspaces/types';
 
 import { HoverCardAnchor } from './PersonHoverCard';
 
@@ -15,9 +16,14 @@ export interface TeamCard {
   team: string;
   kind: 'team' | 'organization' | 'workspace' | 'workspace-admins';
   name: string;
-  /** In the group's workspace: then its workspace and members are given */
+  /**
+   * In the group's workspace (able to see its page or space, for the user
+   * groups of a page or a space): then where it belongs and its members are
+   * given
+   */
   known: boolean;
   workspace: { id: string; name: string } | null;
+  place: TeamPlace | null;
   member_count: number;
   members: {
     id: string;
@@ -96,8 +102,8 @@ const CardContent = ({
           </Text>
           {card && (
             <Text $size="xs" $variation="secondary" $ellipsis>
-              {card.workspace
-                ? `${kinds[card.kind]} · ${card.workspace.name}`
+              {card.place
+                ? `${kinds[card.kind]} · ${card.place.name}`
                 : kinds[card.kind]}
             </Text>
           )}

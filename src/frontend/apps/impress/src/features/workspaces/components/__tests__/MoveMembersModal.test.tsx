@@ -13,6 +13,7 @@ const API = 'http://test.jest/api/v1.0';
 const group = (id: string, name: string): Group => ({
   id,
   workspace: 'ws-1',
+  document: null,
   name,
   kind: GroupKind.TEAM,
   description: '',

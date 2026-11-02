@@ -184,6 +184,7 @@ class GroupSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "workspace",
+            "document",
             "name",
             "kind",
             "description",
@@ -196,6 +197,7 @@ class GroupSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "workspace",
+            "document",
             "team",
             "nb_members",
             "created_by",
@@ -659,10 +661,77 @@ class GroupViewSet(WorkspaceNestedMixin, viewsets.ModelViewSet):
             instance.delete()
 
 
+class DocumentUserGroupViewSet(viewsets.ModelViewSet):
+    """
+    User groups of a page or a space, for mentions only (they never give
+    access). Anyone who can see the page lists them; its owners and
+    administrators create them, and manage them with each group's creator.
+    Its members are managed with the members of any group, under `groups/`.
+
+    /api/v1.0/documents/<resource_id>/user-groups/[<id>/]
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = GroupSerializer
+    pagination_class = None
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    @cached_property
+    def document(self):
+        """The page or space in the URL, if the user can see it."""
+        document = models.Document.objects.filter(
+            id=self.kwargs["resource_id"], ancestors_deleted_at__isnull=True
+        ).first()
+        if document is None or document.get_role(self.request.user) is None:
+            raise drf.exceptions.NotFound()
+        return document
+
+    def get_queryset(self):
+        """The groups of the page in the URL, with their size."""
+        return self.document.user_groups.annotate(
+            nb_members=Count("memberships")
+        ).select_related("created_by", "document")
+
+    def _check_name(self, name, group=None):
+        taken = self.document.user_groups.filter(name=name)
+        if group is not None:
+            taken = taken.exclude(id=group.id)
+        if taken.exists():
+            raise drf.exceptions.ValidationError(
+                {"name": _("A user group with this name already exists here.")}
+            )
+
+    def perform_create(self, serializer):
+        """The page's owners and administrators create teams."""
+        if self.document.get_role(self.request.user) not in choices.PRIVILEGED_ROLES:
+            raise drf.exceptions.PermissionDenied()
+        self._check_name(serializer.validated_data["name"])
+        serializer.save(
+            document=self.document,
+            kind=choices.GroupKindChoices.TEAM,
+            created_by=self.request.user,
+        )
+
+    def perform_update(self, serializer):
+        """The page's owners and administrators, and the creator, rename it."""
+        if not serializer.instance.get_abilities(self.request.user)["update"]:
+            raise drf.exceptions.PermissionDenied()
+        if "name" in serializer.validated_data:
+            self._check_name(serializer.validated_data["name"], serializer.instance)
+        serializer.save(kind=choices.GroupKindChoices.TEAM)
+
+    def perform_destroy(self, instance):
+        """The page's owners and administrators, and the creator, delete it."""
+        if not instance.get_abilities(self.request.user)["destroy"]:
+            raise drf.exceptions.PermissionDenied()
+        instance.delete()
+
+
 class GroupMembershipViewSet(viewsets.ModelViewSet):
     """
-    Members of a group. Workspace members can list them; workspace
-    administrators and group managers add and remove them.
+    Members of a group. Those who can see where it belongs (its workspace,
+    or its page or space) list them; its administrators, its creator and
+    its managers add and remove them.
 
     /api/v1.0/groups/<resource_id>/members/[<id>/]
     """
@@ -673,13 +742,13 @@ class GroupMembershipViewSet(viewsets.ModelViewSet):
 
     @cached_property
     def group(self):
-        """The group in the URL, if the user belongs to its workspace."""
+        """The group in the URL, if the user can see where it belongs."""
         group = (
             models.Group.objects.filter(id=self.kwargs["resource_id"])
-            .select_related("workspace")
+            .select_related("workspace", "document")
             .first()
         )
-        if group is None or group.workspace.get_role(self.request.user) is None:
+        if group is None or not group.get_abilities(self.request.user)["retrieve"]:
             raise drf.exceptions.NotFound()
         return group
 
@@ -694,10 +763,15 @@ class GroupMembershipViewSet(viewsets.ModelViewSet):
             raise drf.exceptions.PermissionDenied()
 
     def perform_create(self, serializer):
-        """Only members of the workspace can join its groups."""
+        """
+        Only members of the workspace can join its groups; anyone one may
+        find can join those of a page or a space.
+        """
         self._check_manager()
         user = serializer.validated_data["user"]
-        if self.group.workspace.get_role(user) is None:
+        if self.group.workspace_id is None:
+            check_can_find(self.request.user, user)
+        elif self.group.workspace.get_role(user) is None:
             raise drf.exceptions.ValidationError(
                 {"user_id": _("Add this collaborator to the workspace first.")}
             )
@@ -713,17 +787,20 @@ class GroupMembershipViewSet(viewsets.ModelViewSet):
     def transfer(self, request, *args, **kwargs):
         """
         POST {user_ids, to_group_id, mode: "move" | "copy"}: put members of
-        this group in another group of the workspace, and, to move them, take
-        them out of this one. Needs the right to manage the members of both
-        (administrators, the groups' creator or managers).
+        this group in another group of the same place (its workspace, or its
+        page or space), and, to move them, take them out of this one. Needs
+        the right to manage the members of both (administrators, the groups'
+        creator or managers).
         """
         self._check_manager()
         target = models.Group.objects.filter(
-            id=request.data.get("to_group_id"), workspace=self.group.workspace
+            id=request.data.get("to_group_id"),
+            workspace_id=self.group.workspace_id,
+            document_id=self.group.document_id,
         ).first()
         if target is None or target == self.group:
             raise drf.exceptions.ValidationError(
-                {"to_group_id": _("Choose another user group of this workspace.")}
+                {"to_group_id": _("Choose another user group of the same place.")}
             )
         if not target.get_abilities(request.user)["manage_members"]:
             raise drf.exceptions.PermissionDenied()
@@ -748,6 +825,40 @@ class GroupMembershipViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 
+def document_user_groups(document, query=""):
+    """
+    The user groups offered for mentions on a document: its own and those of
+    the pages above it, the closest first, as teams to mention.
+    """
+    steplen = models.Document.steplen
+    paths = [
+        document.path[:end] for end in range(steplen, len(document.path) + 1, steplen)
+    ]
+    groups = (
+        models.Group.objects.filter(document__path__in=paths)
+        .annotate(member_count=Count("memberships"))
+        .select_related("document")
+        .order_by("-document__depth", "name")
+    )
+    if query:
+        groups = groups.filter(name__icontains=query)
+    return [
+        {
+            "team": group.team,
+            "label": group.name,
+            "kind": group.kind,
+            "workspace": None,
+            "place": {
+                "kind": group.document.kind,
+                "id": str(group.document_id),
+                "name": group.place_name,
+            },
+            "member_count": group.member_count,
+        }
+        for group in groups
+    ]
+
+
 class GrantableTeamsView(APIView):
     """
     GET /api/v1.0/groups/?document_id=<id>&q=<text>[&include_granted=true]
@@ -759,7 +870,12 @@ class GrantableTeamsView(APIView):
     Teams that already have a role on the document are left out, unless
     `include_granted` (for mentions). With `every_workspace` (for mentions),
     all the groups of every workspace the user belongs to, those of the
-    document's own workspaces first. Each comes with its number of members.
+    document's own workspaces first. Each comes with its number of members,
+    and `place`: the workspace, page or space it belongs to.
+
+    For mentions (`include_granted`), the user groups of the document and of
+    the pages above it come first, the closest first, if the user can see
+    the document. They are never offered for sharing: they give no access.
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -775,6 +891,10 @@ class GrantableTeamsView(APIView):
         )
         if document is None and not every_workspace:
             return drf.response.Response([])
+        include_granted = request.query_params.get("include_granted") in (
+            "true",
+            "1",
+        )
 
         own_workspaces = []
         if document is not None:
@@ -799,8 +919,19 @@ class GrantableTeamsView(APIView):
         )
 
         results = []
+        if (
+            include_granted
+            and document is not None
+            and document.get_role(request.user) is not None
+        ):
+            results.extend(document_user_groups(document, query))
         for workspace in workspaces:
             label = str(_("All members of {name}")).format(name=workspace.name)
+            place = {
+                "kind": "workspace",
+                "id": str(workspace.id),
+                "name": workspace.name,
+            }
             if not query or query in label.lower():
                 results.append(
                     {
@@ -808,6 +939,7 @@ class GrantableTeamsView(APIView):
                         "label": label,
                         "kind": "workspace",
                         "workspace": {"id": str(workspace.id), "name": workspace.name},
+                        "place": place,
                         "member_count": workspace.accesses.count(),
                     }
                 )
@@ -820,11 +952,12 @@ class GrantableTeamsView(APIView):
                     "label": group.name,
                     "kind": group.kind,
                     "workspace": {"id": str(workspace.id), "name": workspace.name},
+                    "place": place,
                     "member_count": group.member_count,
                 }
                 for group in (groups if every_workspace else groups[:20])
             )
-        if request.query_params.get("include_granted") in ("true", "1"):
+        if include_granted:
             return drf.response.Response(results)
         return drf.response.Response(
             [result for result in results if result["team"] not in granted]

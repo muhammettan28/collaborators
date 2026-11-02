@@ -123,8 +123,9 @@ class TeamCardView(APIView):
     group (team string "group:<id>", "workspace:<id>" for all the members of
     a workspace, or "workspace-admins:<id>").
 
-    People of the group's workspace see who is in it (managers first); anyone
-    else only the group's name, which the mention shows anyway.
+    People of the group's workspace (those who can see its page or space,
+    for the user groups of a page or a space) see who is in it (managers
+    first); anyone else only the group's name, which the mention shows anyway.
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -136,23 +137,29 @@ class TeamCardView(APIView):
         if kind == models.TEAM_GROUP:
             group = (
                 models.Group.objects.filter(id=obj_id)
-                .select_related("workspace")
+                .select_related("workspace", "document")
                 .first()
             )
             workspace = group.workspace if group else None
         elif kind is not None:
             workspace = models.Workspace.objects.filter(id=obj_id).first()
-        if workspace is None:
+        in_document = group is not None and group.document_id is not None
+        if workspace is None and not in_document:
             raise drf.exceptions.NotFound()
 
         me = request.user
-        known = workspace.accesses.filter(user=me).exists()
+        known = (
+            group.get_abilities(me)["retrieve"]
+            if in_document
+            else workspace.accesses.filter(user=me).exists()
+        )
         card = {
             "team": team,
             "kind": group.kind if group else kind,
             "name": group.name if group else "",
             "known": known,
             "workspace": None,
+            "place": None,
             "member_count": 0,
             "members": [],
         }
@@ -186,7 +193,24 @@ class TeamCardView(APIView):
         )
         card.update(
             {
-                "workspace": {"id": str(workspace.id), "name": workspace.name},
+                "workspace": (
+                    {"id": str(workspace.id), "name": workspace.name}
+                    if workspace
+                    else None
+                ),
+                "place": (
+                    {
+                        "kind": "workspace",
+                        "id": str(workspace.id),
+                        "name": workspace.name,
+                    }
+                    if workspace
+                    else {
+                        "kind": group.document.kind,
+                        "id": str(group.document_id),
+                        "name": group.place_name,
+                    }
+                ),
                 "member_count": len(people),
                 "members": [
                     {

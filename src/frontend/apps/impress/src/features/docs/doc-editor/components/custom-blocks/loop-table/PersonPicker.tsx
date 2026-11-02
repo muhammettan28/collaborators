@@ -173,7 +173,7 @@ export const PersonPicker = ({
           >
             <Icon iconName="groups" $size="18px" />
             <span>{team.label}</span>
-            <span className="loop-table__muted">{team.workspace.name}</span>
+            <span className="loop-table__muted">{team.place.name}</span>
           </button>
         ))}
         {onPickPage && (

@@ -142,6 +142,14 @@ const LogoModal = dynamic(
   { ssr: false },
 );
 
+const DocUserGroupsModal = dynamic(
+  () =>
+    import('@/features/workspaces/components/DocUserGroupsModal').then(
+      (mod) => ({ default: mod.DocUserGroupsModal }),
+    ),
+  { ssr: false },
+);
+
 const ReportPageModal = dynamic(
   () =>
     import('@/features/platform/ReportPageModal').then((mod) => ({
@@ -205,6 +213,7 @@ const DocToolBoxComponent = ({
   >(null);
   const [isModalIndependentOpen, setIsModalIndependentOpen] = useState(false);
   const [isModalLogoOpen, setIsModalLogoOpen] = useState(false);
+  const [isModalUserGroupsOpen, setIsModalUserGroupsOpen] = useState(false);
   const [isModalReportOpen, setIsModalReportOpen] = useState(false);
   const managesDoc =
     doc.user_role === Role.OWNER || doc.user_role === Role.ADMIN;
@@ -445,6 +454,15 @@ const DocToolBoxComponent = ({
       callback: () => setIsModalLogoOpen(true),
       isHidden: !doc.abilities.partial_update || !!doc.deleted_at,
     },
+    // Collaborators: teams to mention on the page, outside any workspace too
+    {
+      label: t('User groups', {
+        description: 'Dropdown menu item listing the user groups of a page',
+      }),
+      icon: <Icon iconName="groups" $size="18px" $color="inherit" />,
+      callback: () => setIsModalUserGroupsOpen(true),
+      isHidden: !authenticated || !doc.user_role || !!doc.deleted_at,
+    },
     {
       label: t('Table of contents', {
         description:
@@ -576,6 +594,12 @@ const DocToolBoxComponent = ({
       )}
       {isModalLogoOpen && (
         <LogoModal doc={doc} onClose={() => setIsModalLogoOpen(false)} />
+      )}
+      {isModalUserGroupsOpen && (
+        <DocUserGroupsModal
+          doc={doc}
+          onClose={() => setIsModalUserGroupsOpen(false)}
+        />
       )}
       {isModalReportOpen && (
         <ReportPageModal

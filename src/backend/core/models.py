@@ -588,11 +588,12 @@ class User(AbstractBaseUser, BaseModel, auth_models.PermissionsMixin):
     @staticmethod
     def refresh_teams(user_id):
         """Recompute and store the teams of a user from their memberships."""
+        # The user groups of pages and spaces are for mentions only: no team
         teams = [
             make_team(TEAM_GROUP, group_id)
-            for group_id in GroupMembership.objects.filter(user_id=user_id).values_list(
-                "group_id", flat=True
-            )
+            for group_id in GroupMembership.objects.filter(
+                user_id=user_id, group__workspace__isnull=False
+            ).values_list("group_id", flat=True)
         ]
         for workspace_id, role in WorkspaceAccess.objects.filter(
             user_id=user_id
@@ -2851,14 +2852,33 @@ class WorkspaceAccess(BaseModel):
 
 class Group(BaseModel):
     """
-    A set of collaborators of a workspace: a team working on a task, or the
-    people of an organization. Any member can create a team; administrators
-    also create organizations. The creator manages their groups, like the
+    A user group: a set of collaborators that can be mentioned at once.
+
+    It belongs to a workspace, or to a page or a space (`document`), never
+    both. A workspace's user groups are a team working on a task or the
+    people of an organization: any member can create a team, administrators
+    also create organizations, and they can be given roles on spaces and
+    pages. Those of a page or a space are teams for mentions only: they never
+    give access (they are left out of `User.teams`). The page's owners and
+    administrators create them, anyone can be in them, and they are offered
+    on that page and every page below it. They stay attached to it, so they
+    follow it wherever it moves. The creator manages their groups, like the
     administrators.
     """
 
     workspace = models.ForeignKey(
-        Workspace, on_delete=models.CASCADE, related_name="groups"
+        Workspace,
+        on_delete=models.CASCADE,
+        related_name="groups",
+        null=True,
+        blank=True,
+    )
+    document = models.ForeignKey(
+        "Document",
+        on_delete=models.CASCADE,
+        related_name="user_groups",
+        null=True,
+        blank=True,
     )
     name = models.CharField(_("name"), max_length=100)
     kind = models.CharField(
@@ -2886,10 +2906,32 @@ class Group(BaseModel):
                     "A user group with this name already exists in this workspace."
                 ),
             ),
+            models.UniqueConstraint(
+                fields=["document", "name"],
+                name="unique_group_name_per_document",
+                violation_error_message=_(
+                    "A user group with this name already exists here."
+                ),
+            ),
+            models.CheckConstraint(
+                condition=models.Q(workspace__isnull=True)
+                ^ models.Q(document__isnull=True),
+                name="group_in_workspace_or_document",
+                violation_error_message=_(
+                    "A user group belongs to a workspace, or to a page or a space."
+                ),
+            ),
         ]
 
     def __str__(self):
         return self.name
+
+    @property
+    def place_name(self):
+        """The name of the workspace, page or space the group belongs to."""
+        if self.workspace_id:
+            return self.workspace.name
+        return self.document.title or str(_("Untitled page"))
 
     @property
     def team(self):
@@ -2898,11 +2940,23 @@ class Group(BaseModel):
 
     def get_abilities(self, user):
         """
-        Workspace administrators and the group's creator manage the group;
+        Workspace administrators (the owners and administrators of the page
+        or space, for its groups) and the group's creator manage the group;
         group managers manage its members.
         """
-        role = self.workspace.get_role(user)
-        is_owner = role in WORKSPACE_PRIVILEGED_ROLES or (
+        if self.workspace_id:
+            role = self.workspace.get_role(user)
+            privileged = WORKSPACE_PRIVILEGED_ROLES
+        else:
+            # A fresh instance: a document from a request carries the roles
+            # of the requesting user
+            role = (
+                Document.objects.get(pk=self.document_id).get_role(user)
+                if user.is_authenticated
+                else None
+            )
+            privileged = PRIVILEGED_ROLES
+        is_owner = role in privileged or (
             role is not None
             and self.created_by_id is not None
             and self.created_by_id == user.id
@@ -3333,8 +3387,12 @@ def get_team_label(team):
     """Return a human readable name for a team string, or the string itself."""
     kind, obj_id = parse_team(team)
     if kind == TEAM_GROUP:
-        group = Group.objects.filter(id=obj_id).select_related("workspace").first()
-        return f"{group.name} ({group.workspace.name})" if group else team
+        group = (
+            Group.objects.filter(id=obj_id)
+            .select_related("workspace", "document")
+            .first()
+        )
+        return f"{group.name} ({group.place_name})" if group else team
     if kind in (TEAM_WORKSPACE, TEAM_WORKSPACE_ADMINS):
         workspace = Workspace.objects.filter(id=obj_id).first()
         if not workspace:
