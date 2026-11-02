@@ -28,6 +28,10 @@ const loadPdfjs = async (): Promise<PdfModule> => {
 
 const controlsCss = css`
   flex-shrink: 0;
+  /* Collaborators: on a narrow phone, the seconds go to a second row
+     instead of being cut off on the right */
+  flex-wrap: wrap;
+  row-gap: 2px;
   background: rgba(0, 0, 0, 0.6);
   color: #fff;
   & button {
@@ -52,6 +56,15 @@ const controlsCss = css`
   }
   & option {
     color: #000;
+  }
+  /* Collaborators: big enough to tap with a finger (32px) */
+  @media (pointer: coarse) {
+    & button {
+      padding: 6px;
+    }
+    & select {
+      min-height: 32px;
+    }
   }
 `;
 
