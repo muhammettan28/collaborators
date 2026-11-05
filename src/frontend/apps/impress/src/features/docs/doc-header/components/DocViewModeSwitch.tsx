@@ -21,16 +21,27 @@ export const DocViewModeSwitch = ({ doc }: { doc: Doc }) => {
   const mode = useDocViewMode(doc.id);
   const setMode = useDocViewModeStore((state) => state.setMode);
 
-  const options: { value: DocViewMode; icon: string; label: string }[] = [
+  const options: {
+    value: DocViewMode;
+    icon: string;
+    label: string;
+    hint: string;
+  }[] = [
     {
       value: 'reading',
       icon: 'chrome_reader_mode',
       label: t('Reading', { description: 'Page view switch: read only' }),
+      hint: t('Reading: just read the page, nothing changes by mistake', {
+        description: 'Tooltip of the reading view of the page view switch',
+      }),
     },
     {
       value: 'editing',
       icon: 'edit',
       label: t('Editing', { description: 'Page view switch: can change it' }),
+      hint: t('Editing: click in the page and type to change it', {
+        description: 'Tooltip of the editing view of the page view switch',
+      }),
     },
   ];
 
@@ -54,7 +65,7 @@ export const DocViewModeSwitch = ({ doc }: { doc: Doc }) => {
               role="radio"
               aria-checked={isSelected}
               aria-label={option.label}
-              title={option.label}
+              title={option.hint}
               onClick={() => setMode(doc.id, option.value)}
               $direction="row"
               $align="center"

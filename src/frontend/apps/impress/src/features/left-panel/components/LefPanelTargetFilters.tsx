@@ -144,6 +144,8 @@ export const LeftPanelTargetFilters = () => {
     label: string;
     /** What the item shows, when not just its label */
     display?: ReactNode;
+    /** A few words on what the item holds, as its tooltip */
+    hint?: string;
     targetQuery?: DocDefaultFilter;
     href?: string;
   }[] = [
@@ -237,6 +239,9 @@ export const LeftPanelTargetFilters = () => {
       id: 'people',
       label: transFilter(DocDefaultFilter.PEOPLE),
       display: <MyCollaboratorsName size="0.95em" />,
+      hint: t('The people you work with, and the platform settings', {
+        description: 'Tooltip of the "My Collaborators" sidebar item',
+      }),
       targetQuery: DocDefaultFilter.PEOPLE,
     },
     {
@@ -317,6 +322,7 @@ export const LeftPanelTargetFilters = () => {
               key={query.label}
               href={href}
               aria-label={query.label}
+              title={query.hint}
               aria-current={isActive ? 'page' : undefined}
               onClick={handleFilterClick}
               $css={css`

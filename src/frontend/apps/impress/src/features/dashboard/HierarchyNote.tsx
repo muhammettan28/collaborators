@@ -27,9 +27,10 @@ const Level = ({ icon, name }: { icon: string; name: string }) => (
 );
 
 /**
- * At the very bottom of the dashboard, centred in a framed box: a quiet
- * reminder of how workspaces, spaces and pages fit together, with a link to
- * the guide. Not a card: nothing to move, hide or close.
+ * At the top of the dashboard, centred in a framed box: how workspaces,
+ * spaces and pages fit together, the first step to take, and a link to the
+ * guide. It is the first thing a new collaborator needs, so it comes before
+ * the cards. Not a card: nothing to move, hide or close.
  */
 export const HierarchyNote = () => {
   const { t } = useTranslation();
@@ -49,7 +50,7 @@ export const HierarchyNote = () => {
       $gap="sm"
       $width="100%"
       $maxWidth="680px"
-      $margin={{ top: 'lg', horizontal: 'auto' }}
+      $margin={{ horizontal: 'auto' }}
       // Collaborators: a little more air, the three parts read apart
       $padding={{ horizontal: 'md', top: 'md', bottom: 'xs' }}
       data-testid="hierarchy-note"
@@ -131,6 +132,14 @@ export const HierarchyNote = () => {
           })}
         </Text>
       </Box>
+      <Text $size="sm" $weight="600" data-testid="hierarchy-note-first-step">
+        {t(
+          'To start, press “New” in the left panel to create your first page.',
+          {
+            description: 'First step shown in the hierarchy note',
+          },
+        )}
+      </Text>
       {/* Collaborators: the link on a row of its own, tall enough to tap */}
       <StyledLink
         href={GUIDE_PATH}

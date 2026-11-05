@@ -611,6 +611,8 @@ export const Dashboard = () => {
 
       <AccountHints />
 
+      <HierarchyNote />
+
       <BoxButton
         onClick={() =>
           document.dispatchEvent(
@@ -683,8 +685,6 @@ export const Dashboard = () => {
           )}
         </Box>
       </DndContext>
-
-      <HierarchyNote />
     </Box>
   );
 };

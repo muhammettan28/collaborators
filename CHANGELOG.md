@@ -41,6 +41,8 @@ and this project adheres to
 - 💄(mail) the brand's name atop emails holds on one row, even on phones
 - 💄(mail) emails end with the tagline led by the logo, its emojis upright
 - 💄(mail) slim side margins on screens narrower than 500px
+- 💄(frontend) first-step guidance on the home page, tooltips on the
+  sidebar's "My Collaborators" and the Reading/Editing switch
 
 ### Fixed
 
